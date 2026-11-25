@@ -19,7 +19,7 @@ import {
   rememberedLimits,
   resetMoment,
 } from './format'
-import { ICON_PX, iconSvg, type IconName } from './icons'
+import { ICON_PX, LEVEL_ICON_COLOURS, iconSvg, type IconColour, type IconName } from './icons'
 
 /**
  * usage-band: a band above the prompt.
@@ -277,10 +277,10 @@ export const register: Register = on => {
 
     const Label = ({ children }: { children: string }) => <Text dimColor>{children}</Text>
     // A label's icon: a Material Symbols Svg where it can be drawn (its emoji as the alt text), else the emoji.
-    const Icon = ({ name, emoji }: { name: IconName; emoji: string }) =>
+    const Icon = ({ name, emoji, colour }: { name: IconName; emoji: string; colour?: IconColour }) =>
       Svg ? (
         <Box flexDirection="row" alignItems="center">
-          <Svg source={iconSvg(name)} alt={emoji} width={ICON_PX} height={ICON_PX} />
+          <Svg source={iconSvg(name, colour)} alt={emoji} width={ICON_PX} height={ICON_PX} />
           <Text> </Text>
         </Box>
       ) : (
@@ -327,7 +327,7 @@ export const register: Register = on => {
         </Box>
       ) : left > 0 ? (
         <Box key="cache-reading" flexDirection="row">
-          <Icon name="cache" emoji="🔥" />
+          <Icon name="cache" emoji="🔥" colour={LEVEL_ICON_COLOURS[cacheLevel(left)]} />
           <Label>Cache </Label>
           <Text bold color={cacheLevel(left)}>{duration(left)}</Text>
         </Box>

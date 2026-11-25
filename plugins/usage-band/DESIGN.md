@@ -80,24 +80,33 @@ always visible, so they can decide on the spot whether to start a big task, comp
   sketch shows empty cells as `▱` for readability; an outlined `▱` drew taller than `▰` in the desktop
   font, and solid background blocks looked worse). The percentage number itself is bold, and so is the cache countdown.
 - **Icons.** Every label has an icon, all from one set. On graphical surfaces (desktop app, editor,
-  mobile) they are Google **Material Symbols** (outlined), drawn with the `Svg` element at 16 px in a
-  grey close to the dim labels: `#8E8E93`, or `#6E6E73` when the system is in light mode (an Svg is an
-  image, so it cannot take theme colours; it follows `prefers-color-scheme` instead). The terminal has
-  no `Svg`, so there each icon is the matching colour emoji, which is also the Svg's alt text.
+  mobile) they are Google **Material Symbols, filled**, drawn with the `Svg` element at 16 px, each in
+  its own colour. An Svg is an image, so it cannot take theme colours: each colour has a dark-mode and
+  a light-mode shade, switched by `prefers-color-scheme` inside the SVG. The terminal has no `Svg`, so
+  there each icon is the matching colour emoji, which is also the Svg's alt text.
 
-  | Label | Material Symbol | Emoji |
-  | --- | --- | --- |
-  | folder / worktree mark | `folder` / (worktree keeps 🌳 as text) | 📁 |
-  | branch | `fork_right` | 🌿 |
-  | Prompts / Cost | `chat_bubble` / `payments` | 💬 / 💵 |
-  | Context | `memory` | 🧠 |
-  | 5-hour / Week | `hourglass_top` / `calendar_month` | ⏳ / 📅 |
-  | Cache / Cold | `local_fire_department` / `ac_unit` | 🔥 / 🧊 |
-  | Session / Tokens | `timer` / `toll` | ⏱️ / 🪙 |
+  | Label | Material Symbol | Colour (dark / light) | Emoji |
+  | --- | --- | --- | --- |
+  | folder | `folder` | warm grey `#A8A29E` / `#6E6A65` | 📁 (worktree mark stays 🌳 text) |
+  | branch | `fork_right` | git green `#7BC68D` / `#3E8E55` | 🌿 |
+  | Prompts | `chat_bubble` | Claude clay `#D97757` / `#B85C3E` | 💬 |
+  | Cost | `payments` | teal `#5CC2B2` / `#1F8577` | 💵 |
+  | Context | `memory` | violet `#A78BFA` / `#6D4FD6` | 🧠 |
+  | 5-hour | `hourglass_top` | magenta `#E07FC0` / `#B0478F` | ⏳ |
+  | Week | `calendar_month` | periwinkle `#8C9EFF` / `#4F5BD5` | 📅 |
+  | Cache | `local_fire_department` | its countdown level: blue / yellow / red | 🔥 |
+  | Cold | `ac_unit` | ice `#8FD3F4` / `#2E8BB8` | 🧊 |
+  | Session | `timer` | lime `#B5D16B` / `#6B8A1E` | ⏱️ |
+  | Tokens | `toll` | bronze `#C98E5A` / `#95602E` | 🪙 |
 
-  The path data lives in `hooks/icons.ts` (Apache License 2.0, credited there and in the README); each
-  icon's SVG is built from it with nothing but one path and a style. Mixing emoji with plain text
-  symbols (`◐`, `❄`) looked uneven, and colour emoji looked busier than one quiet line-icon set.
+  Palette rule: the icons never use the status colours (calm blue `#5B9DF5`, yellow, red) so a coloured
+  icon is never read as a warning; the only exception is the cache flame, which takes its countdown's
+  level (`LEVEL_ICON_COLOURS`: blue `#5B9DF5`/`#2F6FD6`, yellow `#E5B84B`/`#B58A1A`, red
+  `#E5605B`/`#C2403A`) so it "heats up" as the cache nears expiry. A test holds this rule.
+  Filled shapes carry colour better than 16 px outlines, which looked washed out; the outlined paths are
+  still in `hooks/icons.ts` and `ICON_STYLE` switches back. All path data is Apache License 2.0
+  (credited there and in the README); each icon's SVG is built from one path and a style, nothing else.
+  Before: colour emoji (busier, uneven against plain text symbols like `◐`/`❄`), then grey outlines.
   The `↻` before a reset time is a value marker, not a label icon, and stays a plain symbol.
 - Labels are capitalised words, each after its icon: `Context`, `5-hour`, `Week`, `Cache`, `Session`, `Tokens`, `Prompts`, `Cost` (dim, so values stand
   out); readings in a row are split by a dim `    ·    ` (four spaces each side); the top row is denser,

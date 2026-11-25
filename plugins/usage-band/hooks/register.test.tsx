@@ -1,7 +1,8 @@
 import { expect, mock, test } from 'claude-code/testing'
 import type { SessionUsage, TurnStepResult, TurnUsage } from 'claude-code'
 
-import { ICON_PATHS, ICON_PX, iconSvg, type IconName } from './icons'
+import { CALM_BLUE } from './format'
+import { FILLED_PATHS, ICON_COLOURS, ICON_PX, LEVEL_ICON_COLOURS, iconSvg, type IconName } from './icons'
 
 const NOW = Date.UTC(2026, 10, 25, 12, 0)
 const SURFACES = ['terminal', 'desktop'] as const
@@ -496,12 +497,42 @@ test('a cold cache shows the snowflake icon', async ($, on) => {
   await ui.unmount()
 })
 
-test('an icon is grey in either colour scheme and carries only its path', async () => {
+test('an icon is the filled symbol in its own colour for each scheme, and carries only its path', async () => {
   const svg = iconSvg('context')
   expect(svg.startsWith('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 -960 960 960"')).toBe(true)
-  expect(svg).toContain(`d="${ICON_PATHS.context}"`)
-  expect(svg).toContain('prefers-color-scheme: light')
+  expect(svg).toContain(`d="${FILLED_PATHS.context}"`)
+  expect(svg).toContain(`fill:${ICON_COLOURS.context.dark}`)
+  expect(svg).toContain(`@media (prefers-color-scheme: light){path{fill:${ICON_COLOURS.context.light}}}`)
   expect(svg).not.toMatch(/<script|href|url\(/i)
+})
+
+test('the icon palette never uses the status colours', async () => {
+  const STATUS = [LEVEL_ICON_COLOURS[CALM_BLUE], LEVEL_ICON_COLOURS.warning, LEVEL_ICON_COLOURS.error]
+  for (const [name, colour] of Object.entries(ICON_COLOURS)) {
+    if (name === 'cache') continue // the flame is the one icon that follows its reading's level
+    for (const status of STATUS) {
+      expect(colour.dark).not.toBe(status.dark)
+    }
+  }
+})
+
+test('the cache flame takes its countdown colour', async ($, on) => {
+  const clock = mock.clock(on, { now: NOW })
+  answerUsage(on, EMPTY)
+  await runStep($, on, USAGE) // a 1-hour cache
+
+  const flame = async () => {
+    const ui = await $.ui.mount(band('desktop'))
+    const source = (await ui.findAll({ type: 'Svg' })).find((s: any) => s.props.alt === '🔥')?.props.source
+    await ui.unmount()
+    return source
+  }
+
+  expect(await flame()).toBe(iconSvg('cache', LEVEL_ICON_COLOURS[CALM_BLUE]))
+  await clock.advance(45 * 60_000) // 15m left
+  expect(await flame()).toBe(iconSvg('cache', LEVEL_ICON_COLOURS.warning))
+  await clock.advance(10 * 60_000) // 5m left
+  expect(await flame()).toBe(iconSvg('cache', LEVEL_ICON_COLOURS.error))
 })
 
 test('a cold cache is grey, apart from the blue of a calm reading', async ($, on) => {

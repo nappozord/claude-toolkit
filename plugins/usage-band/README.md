@@ -62,7 +62,8 @@ claude plugin validate .
 
 ## Icons
 
-In the desktop app (and other graphical surfaces) the labels use Google's
+In the desktop app (and other graphical surfaces) the labels use Google's filled
 [Material Symbols](https://github.com/google/material-design-icons), licensed under the
 [Apache License 2.0](https://www.apache.org/licenses/LICENSE-2.0); their path data is in
-`hooks/icons.ts`. The terminal shows the matching emoji instead.
+`hooks/icons.ts`. Each icon has its own muted colour; the cache flame takes its countdown colour
+(blue, then yellow, then red). The terminal shows the matching emoji instead.
