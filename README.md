@@ -28,8 +28,20 @@ Then install what you want:
 To get updates automatically, turn on auto-update for `claude-toolkit` under **Marketplaces** in `/plugin`
 (terminal). Where there is no `/plugin` screen, such as the desktop app, the same switch is
 `"autoUpdate": true` on the `claude-toolkit` entry of `~/.claude/plugins/known_marketplaces.json`.
-Claude Code checks for updates when a session starts; an update is only picked up when the plugin's
-`version` in its `plugin.json` has changed.
+An update is only picked up when the plugin's `version` in its `plugin.json` has changed. The check runs
+after the first message of a session (with a random delay of up to ten minutes); the new version loads
+in the next session, or after `/reload-plugins`.
+
+**Desktop app:** it starts Claude Code with `DISABLE_AUTOUPDATER=1` (the app updates Claude Code
+itself), which also switches the plugin auto-update off. Bring it back with this in
+`~/.claude/settings.json`:
+
+```json
+{ "env": { "FORCE_AUTOUPDATE_PLUGINS": "1" } }
+```
+
+and `"autoUpdate": true` on the `claude-toolkit` entry under `extraKnownMarketplaces` (a settings entry
+takes precedence over `known_marketplaces.json`).
 
 ## Plugins
 
