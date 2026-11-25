@@ -1,8 +1,7 @@
 import { expect, mock, test } from 'claude-code/testing'
 import type { SessionUsage, TurnStepResult, TurnUsage } from 'claude-code'
 
-import { CALM_BLUE } from './format'
-import { FILLED_PATHS, ICON_COLOURS, ICON_PX, LEVEL_ICON_COLOURS, iconSvg, type IconName } from './icons'
+import { FILLED_PATHS, ICON_COLOURS, ICON_PX, dividerSvg, iconSvg, type IconName } from './icons'
 
 const NOW = Date.UTC(2026, 10, 25, 12, 0)
 const SURFACES = ['terminal', 'desktop'] as const
@@ -457,7 +456,7 @@ test('on desktop every label icon is a Material Symbols Svg, its emoji kept as a
   await startSession($)
 
   const ui = await $.ui.mount(band('desktop'))
-  const svgs = await ui.findAll({ type: 'Svg' })
+  const svgs = (await ui.findAll({ type: 'Svg' })).filter((s: any) => s.props.alt !== '│') // label icons only
   expect(svgs.map((s: any) => s.props.alt).sort()).toEqual(ICONS.map(([emoji]) => emoji).sort())
   for (const [emoji, name] of ICONS) {
     const svg = svgs.find((s: any) => s.props.alt === emoji)
@@ -506,17 +505,17 @@ test('an icon is the filled symbol in its own colour for each scheme, and carrie
   expect(svg).not.toMatch(/<script|href|url\(/i)
 })
 
-test('the icon palette never uses the status colours', async () => {
-  const STATUS = [LEVEL_ICON_COLOURS[CALM_BLUE], LEVEL_ICON_COLOURS.warning, LEVEL_ICON_COLOURS.error]
-  for (const [name, colour] of Object.entries(ICON_COLOURS)) {
-    if (name === 'cache') continue // the flame is the one icon that follows its reading's level
-    for (const status of STATUS) {
-      expect(colour.dark).not.toBe(status.dark)
-    }
-  }
+test('the icons use the owner-chosen palette', async () => {
+  expect(ICON_COLOURS.folder).toEqual({ dark: '#E8A54B', light: '#B7752A' }) // orange-yellow
+  expect(ICON_COLOURS.branch).toEqual({ dark: '#5B9DF5', light: '#2F6FD6' }) // the band's blue
+  expect(ICON_COLOURS.prompts).toEqual({ dark: '#4DB6C4', light: '#237F8C' }) // cyan-leaning teal
+  expect(ICON_COLOURS.fiveHour).toEqual({ dark: '#D9B98A', light: '#9C7A45' }) // sand
+  expect(ICON_COLOURS.week).toEqual({ dark: '#F07A9A', light: '#C2456A' }) // pink-red
+  expect(ICON_COLOURS.cache).toEqual({ dark: '#F26B4F', light: '#C8432F' }) // red
+  expect(ICON_COLOURS.session).toEqual({ dark: '#7A7A7A', light: '#4A4A4A' }) // dark grey
 })
 
-test('the cache flame takes its countdown colour', async ($, on) => {
+test('the cache flame stays red however much time is left', async ($, on) => {
   const clock = mock.clock(on, { now: NOW })
   answerUsage(on, EMPTY)
   await runStep($, on, USAGE) // a 1-hour cache
@@ -528,11 +527,9 @@ test('the cache flame takes its countdown colour', async ($, on) => {
     return source
   }
 
-  expect(await flame()).toBe(iconSvg('cache', LEVEL_ICON_COLOURS[CALM_BLUE]))
-  await clock.advance(45 * 60_000) // 15m left
-  expect(await flame()).toBe(iconSvg('cache', LEVEL_ICON_COLOURS.warning))
-  await clock.advance(10 * 60_000) // 5m left
-  expect(await flame()).toBe(iconSvg('cache', LEVEL_ICON_COLOURS.error))
+  expect(await flame()).toBe(iconSvg('cache'))
+  await clock.advance(55 * 60_000) // 5m left
+  expect(await flame()).toBe(iconSvg('cache'))
 })
 
 test('a cold cache is grey, apart from the blue of a calm reading', async ($, on) => {
@@ -569,7 +566,7 @@ test('the top row shows the workspace and, in the corner, price, prompts and mod
 
     expect(words).toContain('📁 my-app')
     expect(words).toContain('🌿 main ↑2 ↓1')
-    expect(words).toContain('💬 Prompts 12  ·  💵 Cost $1.84')
+    expect(words).toContain('💬 Prompts 12  │  💵 Cost $1.84')
     expect(words).not.toContain('≈')
     expect(words).not.toContain('Model')
     expect(words).not.toContain('🌳')
@@ -612,7 +609,7 @@ test('no cost ledger hides the price', async ($, on) => {
   const words = await allText(ui)
   expect(words).not.toContain('💵')
   expect(words).toContain('💬 Prompts 12')
-  expect(words).not.toContain('·  💵')
+  expect(words).not.toContain('│  💵')
   await ui.unmount()
 })
 
@@ -681,21 +678,47 @@ test('the 30-second tick refreshes the branch', async ($, on) => {
   await ui.unmount()
 })
 
-test('the top row uses a tight divider, the usage rows a wide one', async ($, on) => {
+test('dividers are vertical rules: tight in the top row, wide in the usage rows', async ($, on) => {
   mock.clock(on, { now: NOW })
   answerUsage(on, { ...FULL, cost: { usd: 1.8449 } })
   await startSession($)
 
-  const ui = await $.ui.mount(band('desktop'))
-  const words = await allText(ui)
-  expect(words).toContain('📁 my-app  ·  🌿 main ↑2 ↓1')
-  expect(words).toContain('💬 Prompts 12  ·  💵 Cost $1.84')
-  expect(words).toContain('↻ 1h52m    ·    📅 Week')
-  expect(words).toContain('Cache —    ·    ⏱️ Session')
-  const dots = (await ui.findAll({ type: 'Text', text: /·/ })).map((d: any) => d.text)
-  expect(dots.filter((d: string) => d === '  ·  ')).toHaveLength(2)
-  expect(dots.every((d: string) => d === '  ·  ' || d === '    ·    ')).toBe(true)
-  await ui.unmount()
+  for (const surface of SURFACES) {
+    const ui = await $.ui.mount(band(surface))
+    const words = await allText(ui)
+    expect(words).toContain('📁 my-app  │  🌿 main ↑2 ↓1')
+    expect(words).toContain('💬 Prompts 12  │  💵 Cost $1.84')
+    expect(words).toContain('↻ 1h52m    │    📅 Week')
+    expect(words).toContain('Cache —    │    ⏱️ Session')
+    expect(words).not.toContain('·')
+    await ui.unmount()
+  }
+})
+
+test('on desktop a divider is a thin Svg line; in the terminal the │ character', async ($, on) => {
+  mock.clock(on, { now: NOW })
+  answerUsage(on, FULL)
+
+  const desk = await $.ui.mount(band('desktop'))
+  const rules = (await desk.findAll({ type: 'Svg' })).filter((s: any) => s.props.alt === '│')
+  expect(rules.length).toBeGreaterThan(0)
+  for (const rule of rules) {
+    expect(rule.props.source).toBe(dividerSvg())
+  }
+  expect(await desk.find({ type: 'Text', text: /│/ })).toBe(undefined)
+  await desk.unmount()
+
+  const term = await $.ui.mount(band('terminal'))
+  expect(await term.find({ type: 'Text', text: /│/ })).not.toBe(undefined)
+  expect((await term.findAll({ type: 'Svg' })).length).toBe(0)
+  await term.unmount()
+})
+
+test('the divider line is a dim grey in either colour scheme and nothing else', async () => {
+  const svg = dividerSvg()
+  expect(svg.startsWith('<svg xmlns="http://www.w3.org/2000/svg"')).toBe(true)
+  expect(svg).toContain('prefers-color-scheme: light')
+  expect(svg).not.toMatch(/<script|href|url\(/i)
 })
 
 test('the context bar runs straight into its token count, with no divider', async ($, on) => {

@@ -19,7 +19,7 @@ import {
   rememberedLimits,
   resetMoment,
 } from './format'
-import { ICON_PX, LEVEL_ICON_COLOURS, iconSvg, type IconColour, type IconName } from './icons'
+import { DIVIDER_PX, ICON_PX, dividerSvg, iconSvg, type IconColour, type IconName } from './icons'
 
 /**
  * usage-band: a band above the prompt.
@@ -134,9 +134,9 @@ const BAR_CELLS = 10
 const BAR_GLYPH = '▰'
 /** Below this many cells the 5-hour and weekly readings no longer fit one row: they stack. */
 const NARROW_COLUMNS = 80
-const SEP = '    ·    '
+const SEP_PAD = '    '
 /** The top row (workspace, prompts, cost) is denser: a tighter divider. */
-const HEADER_SEP = '  ·  '
+const HEADER_PAD = '  '
 /** Between a bar and what follows it (a reset time, the context token count). */
 const AFTER_BAR = '  '
 
@@ -286,8 +286,19 @@ export const register: Register = on => {
       ) : (
         <Text dimColor>{`${emoji} `}</Text>
       )
-    const Gap = () => <Text dimColor>{SEP}</Text>
-    const HeaderGap = () => <Text dimColor>{HEADER_SEP}</Text>
+    // A divider between readings: a vertical rule. A thin Svg line where Svg can be drawn, else the │ character.
+    const Rule = ({ pad }: { pad: string }) =>
+      Svg ? (
+        <Box flexDirection="row" alignItems="center">
+          <Text>{pad}</Text>
+          <Svg source={dividerSvg()} alt="│" width={3} height={DIVIDER_PX} />
+          <Text>{pad}</Text>
+        </Box>
+      ) : (
+        <Text dimColor>{`${pad}│${pad}`}</Text>
+      )
+    const Gap = () => <Rule pad={SEP_PAD} />
+    const HeaderGap = () => <Rule pad={HEADER_PAD} />
 
     // One reading: the bold percentage, then a 10-cell bar. Filled and empty cells are the same glyph
     // (so they are the same height), the empty ones in the theme's subtle colour.
@@ -327,7 +338,7 @@ export const register: Register = on => {
         </Box>
       ) : left > 0 ? (
         <Box key="cache-reading" flexDirection="row">
-          <Icon name="cache" emoji="🔥" colour={LEVEL_ICON_COLOURS[cacheLevel(left)]} />
+          <Icon name="cache" emoji="🔥" />
           <Label>Cache </Label>
           <Text bold color={cacheLevel(left)}>{duration(left)}</Text>
         </Box>

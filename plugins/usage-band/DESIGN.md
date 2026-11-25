@@ -13,11 +13,11 @@ always visible, so they can decide on the spot whether to start a big task, comp
 ## What it shows
 
 ```
-📁 my-app  ·  🌿 main ↑2 ↓0                        💬 Prompts 12  ·  💵 Cost $1.84
+📁 my-app  │  🌿 main ↑2 ↓0                        💬 Prompts 12  │  💵 Cost $1.84
 ──────────────────────────────────────────────────────────────────────────────────────────────
 🧠 Context 42% ▰▰▰▰▱▱▱▱▱▱  420k / 1M
-⏳ 5-hour 63% ▰▰▰▰▰▰▱▱▱▱  ↻ 1h52m    ·    📅 Week 28% ▰▰▰▱▱▱▱▱▱▱  ↻ Thu 09:00
-🔥 Cache 38m    ·    ⏱️ Session 2h07m    ·    🪙 Tokens 184k
+⏳ 5-hour 63% ▰▰▰▰▰▰▱▱▱▱  ↻ 1h52m    │    📅 Week 28% ▰▰▰▱▱▱▱▱▱▱  ↻ Thu 09:00
+🔥 Cache 38m    │    ⏱️ Session 2h07m    │    🪙 Tokens 184k
 ```
 
 - **Top row — workspace (left) and session (right corner):**
@@ -87,30 +87,30 @@ always visible, so they can decide on the spot whether to start a big task, comp
 
   | Label | Material Symbol | Colour (dark / light) | Emoji |
   | --- | --- | --- | --- |
-  | folder | `folder` | warm grey `#A8A29E` / `#6E6A65` | 📁 (worktree mark stays 🌳 text) |
-  | branch | `fork_right` | git green `#7BC68D` / `#3E8E55` | 🌿 |
-  | Prompts | `chat_bubble` | Claude clay `#D97757` / `#B85C3E` | 💬 |
+  | folder | `folder` | orange-yellow `#E8A54B` / `#B7752A` | 📁 (worktree mark stays 🌳 text) |
+  | branch | `fork_right` | the band's blue `#5B9DF5` / `#2F6FD6` | 🌿 |
+  | Prompts | `chat_bubble` | cyan-leaning teal `#4DB6C4` / `#237F8C` | 💬 |
   | Cost | `payments` | teal `#5CC2B2` / `#1F8577` | 💵 |
   | Context | `memory` | violet `#A78BFA` / `#6D4FD6` | 🧠 |
-  | 5-hour | `hourglass_top` | magenta `#E07FC0` / `#B0478F` | ⏳ |
-  | Week | `calendar_month` | periwinkle `#8C9EFF` / `#4F5BD5` | 📅 |
-  | Cache | `local_fire_department` | its countdown level: blue / yellow / red | 🔥 |
+  | 5-hour | `hourglass_top` | sand `#D9B98A` / `#9C7A45` | ⏳ |
+  | Week | `calendar_month` | pink-red `#F07A9A` / `#C2456A` | 📅 |
+  | Cache | `local_fire_department` | red `#F26B4F` / `#C8432F` | 🔥 |
   | Cold | `ac_unit` | ice `#8FD3F4` / `#2E8BB8` | 🧊 |
-  | Session | `timer` | lime `#B5D16B` / `#6B8A1E` | ⏱️ |
+  | Session | `timer` | dark grey `#7A7A7A` / `#4A4A4A` | ⏱️ |
   | Tokens | `toll` | bronze `#C98E5A` / `#95602E` | 🪙 |
 
-  Palette rule: the icons never use the status colours (calm blue `#5B9DF5`, yellow, red) so a coloured
-  icon is never read as a warning; the only exception is the cache flame, which takes its countdown's
-  level (`LEVEL_ICON_COLOURS`: blue `#5B9DF5`/`#2F6FD6`, yellow `#E5B84B`/`#B58A1A`, red
-  `#E5605B`/`#C2403A`) so it "heats up" as the cache nears expiry. A test holds this rule.
+  The palette is the owner's choice. Branch deliberately uses the band's calm blue, and the cache flame
+  is always red (an earlier version coloured it by its countdown level; the countdown's own text keeps
+  doing that). `ICON_COLOURS` in `hooks/icons.ts` holds them, and a test pins them.
   Filled shapes carry colour better than 16 px outlines, which looked washed out; the outlined paths are
   still in `hooks/icons.ts` and `ICON_STYLE` switches back. All path data is Apache License 2.0
   (credited there and in the README); each icon's SVG is built from one path and a style, nothing else.
   Before: colour emoji (busier, uneven against plain text symbols like `◐`/`❄`), then grey outlines.
   The `↻` before a reset time is a value marker, not a label icon, and stays a plain symbol.
 - Labels are capitalised words, each after its icon: `Context`, `5-hour`, `Week`, `Cache`, `Session`, `Tokens`, `Prompts`, `Cost` (dim, so values stand
-  out); readings in a row are split by a dim `    ·    ` (four spaces each side); the top row is denser,
-  with a dim `  ·  ` (two spaces each side). A bar is followed by two spaces, then what belongs to it: the
+  out); readings in a row are split by a **vertical rule**: four spaces each side; the top row is denser, two
+  spaces each side. On graphical surfaces the rule is a thin Svg line (1 px wide, 16 px tall, dim grey
+  `#5A5A5E`, `#B4B2A9` in light mode); in the terminal it is the `│` character (it was a `·` dot before). A bar is followed by two spaces, then what belongs to it: the
   `↻` reset time, or on the context row the token count directly (no divider there, since the bar and
   `420k / 1M` are one reading).
 - Layout rule: every group of pieces that must sit on one line is an explicit `flexDirection="row"`

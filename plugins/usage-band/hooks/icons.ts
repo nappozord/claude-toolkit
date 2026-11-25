@@ -3,8 +3,6 @@
  * https://github.com/google/material-design-icons, licensed under the Apache License 2.0
  * (https://www.apache.org/licenses/LICENSE-2.0). Only the path data is kept; the band builds each SVG.
  */
-import { CALM_BLUE, type Level } from './format'
-
 /** Filled symbols: what the band draws. Colour reads better on a solid shape at 16 px. */
 export const FILLED_PATHS = {
   /** `folder` */
@@ -73,30 +71,35 @@ export const ICON_PX = 16
 export type IconColour = { dark: string; light: string }
 
 /**
- * Each icon's own colour. Muted hues that never use the status colours (calm blue, yellow, red), so an
- * icon is never read as a warning. The cache flame is the exception: it takes its countdown's level.
+ * Each icon's own colour, chosen by the owner. Branch deliberately shares the band's calm blue, and the
+ * cache flame is always red (it no longer follows its countdown; the countdown's own text does).
  */
 export const ICON_COLOURS: Record<IconName, IconColour> = {
-  folder: { dark: '#A8A29E', light: '#6E6A65' }, // warm grey: context, not a reading
-  worktree: { dark: '#A8A29E', light: '#6E6A65' },
-  branch: { dark: '#7BC68D', light: '#3E8E55' }, // git green
-  prompts: { dark: '#D97757', light: '#B85C3E' }, // Claude's clay
+  folder: { dark: '#E8A54B', light: '#B7752A' }, // orange-yellow
+  worktree: { dark: '#E8A54B', light: '#B7752A' },
+  branch: { dark: '#5B9DF5', light: '#2F6FD6' }, // the band's blue
+  prompts: { dark: '#4DB6C4', light: '#237F8C' }, // cyan-leaning teal
   cost: { dark: '#5CC2B2', light: '#1F8577' }, // teal
   context: { dark: '#A78BFA', light: '#6D4FD6' }, // violet
-  fiveHour: { dark: '#E07FC0', light: '#B0478F' }, // magenta: the short window
-  week: { dark: '#8C9EFF', light: '#4F5BD5' }, // periwinkle: the long window
-  cache: { dark: '#5B9DF5', light: '#2F6FD6' }, // replaced by its countdown level when drawn
+  fiveHour: { dark: '#D9B98A', light: '#9C7A45' }, // sand
+  week: { dark: '#F07A9A', light: '#C2456A' }, // pink-red
+  cache: { dark: '#F26B4F', light: '#C8432F' }, // red
   cold: { dark: '#8FD3F4', light: '#2E8BB8' }, // ice
-  session: { dark: '#B5D16B', light: '#6B8A1E' }, // lime
+  session: { dark: '#7A7A7A', light: '#4A4A4A' }, // dark grey
   tokens: { dark: '#C98E5A', light: '#95602E' }, // bronze: a coin
 }
 
-/** The status colours as icon colours, for the one icon that follows a level (the cache flame). */
-export const LEVEL_ICON_COLOURS: Record<Level, IconColour> = {
-  [CALM_BLUE]: { dark: '#5B9DF5', light: '#2F6FD6' },
-  warning: { dark: '#E5B84B', light: '#B58A1A' },
-  error: { dark: '#E5605B', light: '#C2403A' },
-} as Record<Level, IconColour>
+/** The divider's colour: a dim grey, like the dot it replaced. */
+const DIVIDER_COLOUR: IconColour = { dark: '#5A5A5E', light: '#B4B2A9' }
+
+/** Height of the divider line in CSS pixels: a little taller than the icons, as a rule between readings. */
+export const DIVIDER_PX = 16
+
+/** A vertical rule: a 1 px line, centred in a 3 px wide box. */
+export const dividerSvg = (): string =>
+  `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 3 ${DIVIDER_PX}" width="3" height="${DIVIDER_PX}">` +
+  `<style>rect{fill:${DIVIDER_COLOUR.dark}}@media (prefers-color-scheme: light){rect{fill:${DIVIDER_COLOUR.light}}}</style>` +
+  `<rect x="1" y="0" width="1" height="${DIVIDER_PX}"/></svg>`
 
 /** A complete, self-contained SVG document for one icon: one path, a style, nothing else. */
 export const iconSvg = (name: IconName, colour: IconColour = ICON_COLOURS[name]): string =>

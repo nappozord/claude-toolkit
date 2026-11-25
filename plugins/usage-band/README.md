@@ -4,11 +4,11 @@ A Claude Code mod that keeps your workspace and your usage in view: a band above
 desktop app and the terminal.
 
 ```
-📁 my-app  ·  🌿 main ↑2 ↓0                        💬 Prompts 12  ·  💵 Cost $1.84
+📁 my-app  │  🌿 main ↑2 ↓0                        💬 Prompts 12  │  💵 Cost $1.84
 ──────────────────────────────────────────────────────────────────────────────────────────────
 🧠 Context 42% ▰▰▰▰▱▱▱▱▱▱  420k / 1M
-⏳ 5-hour 63% ▰▰▰▰▰▰▱▱▱▱  ↻ 1h52m    ·    📅 Week 28% ▰▰▰▱▱▱▱▱▱▱  ↻ Thu 16:00
-🔥 Cache 38m    ·    ⏱️ Session 2h07m    ·    🪙 Tokens 184k
+⏳ 5-hour 63% ▰▰▰▰▰▰▱▱▱▱  ↻ 1h52m    │    📅 Week 28% ▰▰▰▱▱▱▱▱▱▱  ↻ Thu 16:00
+🔥 Cache 38m    │    ⏱️ Session 2h07m    │    🪙 Tokens 184k
 ```
 
 | Reading | What it means |
@@ -65,5 +65,5 @@ claude plugin validate .
 In the desktop app (and other graphical surfaces) the labels use Google's filled
 [Material Symbols](https://github.com/google/material-design-icons), licensed under the
 [Apache License 2.0](https://www.apache.org/licenses/LICENSE-2.0); their path data is in
-`hooks/icons.ts`. Each icon has its own muted colour; the cache flame takes its countdown colour
-(blue, then yellow, then red). The terminal shows the matching emoji instead.
+`hooks/icons.ts`. Each icon has its own colour, and readings are separated by thin vertical rules. The terminal
+shows the matching emoji instead, and `│` for the rules.
