@@ -25,7 +25,11 @@ Then install what you want:
 /plugin install no-coauthor@claude-toolkit
 ```
 
-To get updates automatically, turn on auto-update for `claude-toolkit` under **Marketplaces** in `/plugin`.
+To get updates automatically, turn on auto-update for `claude-toolkit` under **Marketplaces** in `/plugin`
+(terminal). Where there is no `/plugin` screen, such as the desktop app, the same switch is
+`"autoUpdate": true` on the `claude-toolkit` entry of `~/.claude/plugins/known_marketplaces.json`.
+Claude Code checks for updates when a session starts; an update is only picked up when the plugin's
+`version` in its `plugin.json` has changed.
 
 ## Plugins
 
