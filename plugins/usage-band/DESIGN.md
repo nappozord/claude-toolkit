@@ -97,6 +97,9 @@ always visible, so they can decide on the spot whether to start a big task, comp
   call (git commands and branch switches run there) and on the 30-second tick. The result is kept in
   session state; drawing reads that, so a slow repository never delays the band. A failed read keeps
   the folder alone.
+- Every git call runs as `git -c core.fsmonitor=false …`: the band reads git in whatever folder a
+  session opens, and a repository's own config could otherwise make `git status` launch a program
+  (its fsmonitor). Repo hooks are already off for git that a mod runs.
 - Draws on every surface (desktop app, terminal). Yields the band to surveys (`hasSurvey`).
 
 ## Non-goals (for now)

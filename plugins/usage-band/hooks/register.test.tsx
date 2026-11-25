@@ -58,7 +58,7 @@ const answerUsage = (
     cwd?: string
     model?: string
     turns?: number
-    git?: () => Git
+    git?: (argv: string[]) => Git
   } = {},
 ) => {
   on('session.usage', () => ({ value: usage }))
@@ -66,7 +66,7 @@ const answerUsage = (
   on('session.model', () => ({ value: model }))
   on('session.turns', () => ({ value: turns }))
   on('process.run', (_: any, e: any) => {
-    const answer = git()
+    const answer = git([...e.argv])
     const out = answer === null ? '' : e.argv.includes('status') ? answer.status : answer.dirs
 
     return {
@@ -571,4 +571,18 @@ test('the dot dividers have four spaces on each side', async ($, on) => {
     expect(dot.text).toBe('    ·    ')
   }
   await ui.unmount()
+})
+
+test('git is read with fsmonitor off, so a repo config cannot make it run a program', async ($, on) => {
+  mock.clock(on, { now: NOW })
+  const argvs: string[][] = []
+  answerUsage(on, FULL, { git: argv => (argvs.push(argv), null) })
+  await startSession($)
+
+  const ui = await $.ui.mount(band('desktop'))
+  await ui.unmount()
+  expect(argvs.length).toBeGreaterThan(0)
+  for (const argv of argvs) {
+    expect(argv.slice(0, 3)).toEqual(['git', '-c', 'core.fsmonitor=false'])
+  }
 })

@@ -37,7 +37,9 @@ const refreshWorkspace = async ($: EngineInterface): Promise<void> => {
   const folder = cwd.split('/').filter(Boolean).pop() ?? cwd
   const git = async (...args: string[]) => {
     try {
-      const r = await $.process.run(['git', ...args], { cwd, timeoutMs: GIT_TIMEOUT_MS })
+      // fsmonitor off: a repository's own config could otherwise make `git status` run a program.
+      // (Repo hooks are already off for git run by a mod.)
+      const r = await $.process.run(['git', '-c', 'core.fsmonitor=false', ...args], { cwd, timeoutMs: GIT_TIMEOUT_MS })
 
       return r.exitCode === 0 ? r.stdout : null
     } catch {
