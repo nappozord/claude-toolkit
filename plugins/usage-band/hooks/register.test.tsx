@@ -1,6 +1,8 @@
 import { expect, mock, test } from 'claude-code/testing'
 import type { SessionUsage, TurnStepResult, TurnUsage } from 'claude-code'
 
+import { ICON_PATHS, ICON_PX, iconSvg, type IconName } from './icons'
+
 const NOW = Date.UTC(2026, 10, 25, 12, 0)
 const SURFACES = ['terminal', 'desktop'] as const
 
@@ -26,7 +28,11 @@ const USAGE: TurnUsage = {
 }
 
 // All of the band's words in drawing order.
-const allText = async (ui: any) => (await ui.findAll({ type: 'Text' })).map((t: any) => t.text).join('')
+// An icon drawn as an Svg (desktop) reads as its alt, the emoji the terminal shows in its place.
+const allText = async (ui: any) =>
+  (await ui.findAll({}))
+    .map((el: any) => (el.type === 'Text' ? el.text : el.type === 'Svg' ? String(el.props.alt) : ''))
+    .join('')
 
 const band = (surface: (typeof SURFACES)[number], hasSurvey = false) => ({
   plugin: 'usage-band',
@@ -139,16 +145,16 @@ test('draws three rows from the usage figures', async ($, on) => {
     const ui = await $.ui.mount(band(surface))
     const text = async (re: RegExp) => (await ui.find({ type: 'Text', text: re }))?.text
 
-    expect(await text(/Context/)).toBe('🧠 Context ')
+    expect(await text(/Context/)).toBe('Context ')
     expect(await text(/42%/)).toBe('42%')
     expect(await text(/\/ 1M/)).toBe('420k / 1M')
-    expect(await text(/5-hour/)).toBe('⏳ 5-hour ')
+    expect(await text(/5-hour/)).toBe('5-hour ')
     expect(await text(/63%/)).toBe('63%')
     expect(await text(/1h52m/)).toBe('↻ 1h52m')
-    expect(await text(/Week/)).toBe('📅 Week ')
+    expect(await text(/Week/)).toBe('Week ')
     expect(await text(/28%/)).toBe('28%')
     expect(await text(/09:00/)).toBe('↻ Thu 09:00')
-    expect(await text(/Session/)).toBe('⏱️ Session ')
+    expect(await text(/Session/)).toBe('Session ')
     expect(await text(/^2h07m$/)).toBe('2h07m')
     await ui.unmount()
   }
@@ -185,7 +191,7 @@ test('shows dashes before any reading', async ($, on) => {
     const text = async (re: RegExp) => (await ui.find({ type: 'Text', text: re }))?.text
 
     expect(await text(/\/ 1M/)).toBe('— / 1M')
-    expect(await text(/Cache/)).toBe('🔥 Cache ')
+    expect(await text(/Cache/)).toBe('Cache ')
     expect(await allText(ui)).toContain('Tokens 0')
     expect(await text(/%/)).toBe(undefined)
     await ui.unmount()
@@ -202,7 +208,7 @@ test('a main-thread step warms the cache and counts tokens without cache reads',
     const text = async (re: RegExp) => (await ui.find({ type: 'Text', text: re }))?.text
 
     expect(await allText(ui)).toContain('Tokens 1k')
-    expect(await text(/Cache/)).toBe('🔥 Cache ')
+    expect(await text(/Cache/)).toBe('Cache ')
     expect(await text(/^1h00m$/)).toBe('1h00m')
     await ui.unmount()
   }
@@ -215,7 +221,7 @@ test('a subagent step counts tokens but leaves the cache timer alone', async ($,
 
   const ui = await $.ui.mount(band('desktop'))
   expect(await allText(ui)).toContain('Tokens 1k')
-  expect((await ui.find({ type: 'Text', text: /Cache/ }))?.text).toBe('🔥 Cache ')
+  expect((await ui.find({ type: 'Text', text: /Cache/ }))?.text).toBe('Cache ')
   expect(await ui.find({ type: 'Text', text: /^\d+[smhd]/ })).toBe(undefined)
   await ui.unmount()
 })
@@ -227,7 +233,7 @@ test('the cache goes cold after its lifetime', async ($, on) => {
   await clock.advance(301_000)
 
   const ui = await $.ui.mount(band('desktop'))
-  expect((await ui.find({ type: 'Text', text: /Cold/ }))?.text).toBe('🧊 Cold')
+  expect((await ui.find({ type: 'Text', text: /Cold/ }))?.text).toBe('Cold')
   await ui.unmount()
 })
 
@@ -238,7 +244,7 @@ test('a step with no usage changes nothing', async ($, on) => {
 
   const ui = await $.ui.mount(band('desktop'))
   expect(await allText(ui)).toContain('Tokens 0')
-  expect((await ui.find({ type: 'Text', text: /Cache/ }))?.text).toBe('🔥 Cache ')
+  expect((await ui.find({ type: 'Text', text: /Cache/ }))?.text).toBe('Cache ')
   expect(await ui.find({ type: 'Text', text: /^\d+[smhd]/ })).toBe(undefined)
   await ui.unmount()
 })
@@ -280,7 +286,7 @@ test('/clear starts the tally over', async ($, on) => {
 
   const ui = await $.ui.mount(band('desktop'))
   expect(await allText(ui)).toContain('Tokens 0')
-  expect((await ui.find({ type: 'Text', text: /Cache/ }))?.text).toBe('🔥 Cache ')
+  expect((await ui.find({ type: 'Text', text: /Cache/ }))?.text).toBe('Cache ')
   expect(await ui.find({ type: 'Text', text: /^\d+[smhd]/ })).toBe(undefined)
   await ui.unmount()
 })
@@ -371,7 +377,7 @@ test('the week reading has a calendar', async ($, on) => {
   for (const bodyColumns of [120, 50]) {
     const target = band('desktop')
     const ui = await $.ui.mount({ ...target, props: { ...target.props, bodyColumns } })
-    expect((await ui.find({ type: 'Text', text: /Week/ }))?.text).toBe('📅 Week ')
+    expect((await ui.find({ type: 'Text', text: /Week/ }))?.text).toBe('Week ')
     await ui.unmount()
   }
 })
@@ -438,15 +444,64 @@ test('the cache countdown is bold like the percentages', async ($, on) => {
   await ui.unmount()
 })
 
-test('every label icon is a colour emoji', async ($, on) => {
+const ICONS: [string, string][] = [
+  ['📁', 'folder'], ['🌿', 'branch'], ['💬', 'prompts'], ['💵', 'cost'], ['🧠', 'context'],
+  ['⏳', 'fiveHour'], ['📅', 'week'], ['🔥', 'cache'], ['⏱️', 'session'], ['🪙', 'tokens'],
+]
+
+test('on desktop every label icon is a Material Symbols Svg, its emoji kept as alt text', async ($, on) => {
   mock.clock(on, { now: NOW })
-  answerUsage(on, FULL)
+  answerUsage(on, { ...FULL, cost: { usd: 1 } })
+  await runStep($, on, USAGE)
+  await startSession($)
 
   const ui = await $.ui.mount(band('desktop'))
-  for (const label of ['🧠 Context ', '⏳ 5-hour ', '📅 Week ', '🔥 Cache ', '⏱️ Session ', '🪙 Tokens ']) {
-    expect((await ui.find({ type: 'Text', text: label }))?.text).toBe(label)
+  const svgs = await ui.findAll({ type: 'Svg' })
+  expect(svgs.map((s: any) => s.props.alt).sort()).toEqual(ICONS.map(([emoji]) => emoji).sort())
+  for (const [emoji, name] of ICONS) {
+    const svg = svgs.find((s: any) => s.props.alt === emoji)
+    expect(svg?.props.source).toBe(iconSvg(name as IconName))
+    expect(svg?.props.width).toBe(ICON_PX)
+    expect(svg?.props.height).toBe(ICON_PX)
+  }
+  // No emoji left in the text on desktop.
+  expect(await ui.find({ type: 'Text', text: /[📁🌿💬💵🧠⏳📅🔥⏱🪙🧊]/u })).toBe(undefined)
+  await ui.unmount()
+})
+
+test('in the terminal, which has no Svg, the labels keep their emoji', async ($, on) => {
+  mock.clock(on, { now: NOW })
+  answerUsage(on, { ...FULL, cost: { usd: 1 } })
+  await runStep($, on, USAGE)
+  await startSession($)
+
+  const ui = await $.ui.mount(band('terminal'))
+  const words = await allText(ui)
+  for (const [emoji] of ICONS) {
+    expect(words).toContain(emoji)
   }
   await ui.unmount()
+})
+
+test('a cold cache shows the snowflake icon', async ($, on) => {
+  const clock = mock.clock(on, { now: NOW })
+  answerUsage(on, EMPTY)
+  await runStep($, on, { ...USAGE, ephemeral_5m_input_tokens: 1_000, ephemeral_1h_input_tokens: 0 })
+  await clock.advance(301_000)
+
+  const ui = await $.ui.mount(band('desktop'))
+  const svg = (await ui.findAll({ type: 'Svg' })).find((s: any) => s.props.alt === '🧊')
+  expect(svg?.props.source).toBe(iconSvg('cold'))
+  expect(await allText(ui)).toContain('🧊 Cold')
+  await ui.unmount()
+})
+
+test('an icon is grey in either colour scheme and carries only its path', async () => {
+  const svg = iconSvg('context')
+  expect(svg.startsWith('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 -960 960 960"')).toBe(true)
+  expect(svg).toContain(`d="${ICON_PATHS.context}"`)
+  expect(svg).toContain('prefers-color-scheme: light')
+  expect(svg).not.toMatch(/<script|href|url\(/i)
 })
 
 test('a cold cache is grey, apart from the blue of a calm reading', async ($, on) => {
@@ -467,7 +522,7 @@ test('row 3 reads Cache, Session, then Tokens with a dim label', async ($, on) =
   for (const surface of SURFACES) {
     const ui = await $.ui.mount(band(surface))
     expect(await allText(ui)).toMatch(/Cache .*Session .*Tokens 0$/)
-    expect((await ui.find({ type: 'Text', text: /^🪙 Tokens $/ }))?.props.dimColor).toBe(true)
+    expect((await ui.find({ type: 'Text', text: /^Tokens $/ }))?.props.dimColor).toBe(true)
     await ui.unmount()
   }
 })
@@ -488,7 +543,7 @@ test('the top row shows the workspace and, in the corner, price, prompts and mod
     expect(words).not.toContain('Model')
     expect(words).not.toContain('🌳')
     expect(words.indexOf('📁')).toBeLessThan(words.indexOf('🧠'))
-    for (const label of ['💬 Prompts ', '💵 Cost ']) {
+    for (const label of ['Prompts ', 'Cost ']) {
       expect((await ui.find({ type: 'Text', text: label }))?.props.dimColor).toBe(true)
     }
     await ui.unmount()

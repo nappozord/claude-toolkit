@@ -19,6 +19,7 @@ import {
   rememberedLimits,
   resetMoment,
 } from './format'
+import { ICON_PX, iconSvg, type IconName } from './icons'
 
 /**
  * usage-band: a band above the prompt.
@@ -255,7 +256,11 @@ export const register: Register = on => {
       return next(e)
     }
 
-    const { Box, Markdown, Text } = $.ui.resolve(e)
+    const elements = $.ui.resolve(e)
+    const { Box, Markdown, Text } = elements
+    // Graphical surfaces draw Svg; the terminal has none, so there each icon stays an emoji.
+    // (Decided by surface: the terminal's table still answers for `Svg`, drawing nothing.)
+    const Svg = e.surface !== 'terminal' && 'Svg' in elements ? elements.Svg : undefined
     const [t, ws, remembered, usage, now, turns] = await Promise.all([
       read($, tally),
       read($, workspace),
@@ -271,6 +276,16 @@ export const register: Register = on => {
     const isNarrow = e.props.bodyColumns < NARROW_COLUMNS
 
     const Label = ({ children }: { children: string }) => <Text dimColor>{children}</Text>
+    // A label's icon: a Material Symbols Svg where it can be drawn (its emoji as the alt text), else the emoji.
+    const Icon = ({ name, emoji }: { name: IconName; emoji: string }) =>
+      Svg ? (
+        <Box flexDirection="row" alignItems="center">
+          <Svg source={iconSvg(name)} alt={emoji} width={ICON_PX} height={ICON_PX} />
+          <Text> </Text>
+        </Box>
+      ) : (
+        <Text dimColor>{`${emoji} `}</Text>
+      )
     const Gap = () => <Text dimColor>{SEP}</Text>
     const HeaderGap = () => <Text dimColor>{HEADER_SEP}</Text>
 
@@ -306,16 +321,21 @@ export const register: Register = on => {
     const cache =
       left === null ? (
         <Box key="cache-reading" flexDirection="row">
-          <Label>🔥 Cache </Label>
+          <Icon name="cache" emoji="🔥" />
+          <Label>Cache </Label>
           <Text>—</Text>
         </Box>
       ) : left > 0 ? (
         <Box key="cache-reading" flexDirection="row">
-          <Label>🔥 Cache </Label>
+          <Icon name="cache" emoji="🔥" />
+          <Label>Cache </Label>
           <Text bold color={cacheLevel(left)}>{duration(left)}</Text>
         </Box>
       ) : (
-        <Text color="inactive">🧊 Cold</Text>
+        <Box flexDirection="row" alignItems="center">
+          <Icon name="cold" emoji="🧊" />
+          <Text color="inactive">Cold</Text>
+        </Box>
       )
 
     return (
@@ -323,17 +343,19 @@ export const register: Register = on => {
         {/* Workspace left, session corner right; the corner wraps under only when it does not fit. */}
         <Box key="top" flexDirection="row" flexWrap="wrap" justifyContent="space-between">
           <Box flexDirection="row" alignItems="center">
-            {ws ? <Label>📁 </Label> : null}
+            {ws ? <Icon name="folder" emoji="📁" /> : null}
             {ws ? <Text>{ws.isWorktree ? `${ws.folder} 🌳` : ws.folder}</Text> : null}
             {ws?.git ? <HeaderGap /> : null}
-            {ws?.git ? <Label>🌿 </Label> : null}
+            {ws?.git ? <Icon name="branch" emoji="🌿" /> : null}
             {ws?.git ? <Text>{branchLabel(ws.git)}</Text> : null}
           </Box>
           <Box flexDirection="row" alignItems="center">
-            <Label>💬 Prompts </Label>
+            <Icon name="prompts" emoji="💬" />
+            <Label>Prompts </Label>
             <Text>{String(turns)}</Text>
             {cost ? <HeaderGap /> : null}
-            {cost ? <Label>💵 Cost </Label> : null}
+            {cost ? <Icon name="cost" emoji="💵" /> : null}
+            {cost ? <Label>Cost </Label> : null}
             {cost ? <Text>{price(cost.usd)}</Text> : null}
           </Box>
         </Box>
@@ -344,21 +366,24 @@ export const register: Register = on => {
           <Markdown text="---" dimColor />
         )}
         <Box flexDirection="row" alignItems="center">
-          <Label>🧠 Context </Label>
+          <Icon name="context" emoji="🧠" />
+          <Label>Context </Label>
           <Percent name="context" value={context.percent} />
           <Text>{AFTER_BAR}</Text>
           <Text>{`${context.tokens === undefined ? '—' : compactTokens(context.tokens)} / ${compactTokens(context.window)}`}</Text>
         </Box>
         <Box key="limits" flexDirection={isNarrow ? 'column' : 'row'}>
           <Box flexDirection="row" alignItems="center">
-            <Label>⏳ 5-hour </Label>
+            <Icon name="fiveHour" emoji="⏳" />
+            <Label>5-hour </Label>
             <Percent name="five" value={five?.percentUsed} />
             {five ? <Text>{AFTER_BAR}</Text> : null}
             {five ? <Text dimColor>{`↻ ${untilReset(five.resetsAt)}`}</Text> : null}
           </Box>
           {isNarrow ? null : <Gap />}
           <Box flexDirection="row" alignItems="center">
-            <Label>📅 Week </Label>
+            <Icon name="week" emoji="📅" />
+            <Label>Week </Label>
             <Percent name="week" value={week?.percentUsed} />
             {week ? <Text>{AFTER_BAR}</Text> : null}
             {week ? <Text dimColor>{`↻ ${resetMoment(week.resetsAt, now)}`}</Text> : null}
@@ -367,10 +392,12 @@ export const register: Register = on => {
         <Box flexDirection="row" alignItems="center">
           {cache}
           <Gap />
-          <Label>⏱️ Session </Label>
+          <Icon name="session" emoji="⏱️" />
+          <Label>Session </Label>
           <Text>{duration(now - startedAt)}</Text>
           <Gap />
-          <Label>🪙 Tokens </Label>
+          <Icon name="tokens" emoji="🪙" />
+          <Label>Tokens </Label>
           <Text>{compactTokens(t.tokens)}</Text>
         </Box>
       </Box>

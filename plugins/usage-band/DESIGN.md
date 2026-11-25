@@ -79,10 +79,27 @@ always visible, so they can decide on the spot whether to start a big task, comp
   the empty cells the same glyph in the theme's `subtle` colour, so both are the same height (the
   sketch shows empty cells as `▱` for readability; an outlined `▱` drew taller than `▰` in the desktop
   font, and solid background blocks looked worse). The percentage number itself is bold, and so is the cache countdown.
-- Every label icon is a colour emoji from the same set (mixing emoji with plain text symbols like
-  `◐` or `❄` looked uneven); the `↻` before a reset time is a value marker, not a label icon, and
-  stays a plain symbol.
-- Labels are capitalised words, each with an icon: `🧠 Context`, `⏳ 5-hour`, `📅 Week`, `🔥 Cache`, `⏱️ Session` and `🪙 Tokens` (dim, so values stand
+- **Icons.** Every label has an icon, all from one set. On graphical surfaces (desktop app, editor,
+  mobile) they are Google **Material Symbols** (outlined), drawn with the `Svg` element at 16 px in a
+  grey close to the dim labels: `#8E8E93`, or `#6E6E73` when the system is in light mode (an Svg is an
+  image, so it cannot take theme colours; it follows `prefers-color-scheme` instead). The terminal has
+  no `Svg`, so there each icon is the matching colour emoji, which is also the Svg's alt text.
+
+  | Label | Material Symbol | Emoji |
+  | --- | --- | --- |
+  | folder / worktree mark | `folder` / (worktree keeps 🌳 as text) | 📁 |
+  | branch | `fork_right` | 🌿 |
+  | Prompts / Cost | `chat_bubble` / `payments` | 💬 / 💵 |
+  | Context | `memory` | 🧠 |
+  | 5-hour / Week | `hourglass_top` / `calendar_month` | ⏳ / 📅 |
+  | Cache / Cold | `local_fire_department` / `ac_unit` | 🔥 / 🧊 |
+  | Session / Tokens | `timer` / `toll` | ⏱️ / 🪙 |
+
+  The path data lives in `hooks/icons.ts` (Apache License 2.0, credited there and in the README); each
+  icon's SVG is built from it with nothing but one path and a style. Mixing emoji with plain text
+  symbols (`◐`, `❄`) looked uneven, and colour emoji looked busier than one quiet line-icon set.
+  The `↻` before a reset time is a value marker, not a label icon, and stays a plain symbol.
+- Labels are capitalised words, each after its icon: `Context`, `5-hour`, `Week`, `Cache`, `Session`, `Tokens`, `Prompts`, `Cost` (dim, so values stand
   out); readings in a row are split by a dim `    ·    ` (four spaces each side); the top row is denser,
   with a dim `  ·  ` (two spaces each side). A bar is followed by two spaces, then what belongs to it: the
   `↻` reset time, or on the context row the token count directly (no divider there, since the bar and

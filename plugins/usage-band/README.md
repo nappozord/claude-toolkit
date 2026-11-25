@@ -44,6 +44,7 @@ session starts, after every shell command Claude runs, and every 30 seconds.
 ## Files
 
 - `hooks/register.tsx` — records each model request, reads git, and draws the band.
+- `hooks/icons.ts` — the Material Symbols path data and the SVG built from it.
 - `hooks/format.ts` — the formatting rules (bars, colours, durations, token counts, cache lifetime,
   git branch line, price).
 - `types/index.d.ts` — what the band keeps in session state.
@@ -58,3 +59,10 @@ claude plugin test .
 ```bash
 claude plugin validate .
 ```
+
+## Icons
+
+In the desktop app (and other graphical surfaces) the labels use Google's
+[Material Symbols](https://github.com/google/material-design-icons), licensed under the
+[Apache License 2.0](https://www.apache.org/licenses/LICENSE-2.0); their path data is in
+`hooks/icons.ts`. The terminal shows the matching emoji instead.
