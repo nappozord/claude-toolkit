@@ -13,10 +13,10 @@ always visible, so they can decide on the spot whether to start a big task, comp
 ## What it shows
 
 ```
-📁 my-app    ·    🌿 main ↑2 ↓0                        💬 Prompts 12    ·    💵 Cost $1.84
+📁 my-app  ·  🌿 main ↑2 ↓0                        💬 Prompts 12  ·  💵 Cost $1.84
 ──────────────────────────────────────────────────────────────────────────────────────────────
-🧠 Context 42% ▰▰▰▰▱▱▱▱▱▱    ·    420k / 1M
-⏳ 5-hour 63% ▰▰▰▰▰▰▱▱▱▱ ↻ 1h52m    ·    📅 Week 28% ▰▰▰▱▱▱▱▱▱▱ ↻ Thu 09:00
+🧠 Context 42% ▰▰▰▰▱▱▱▱▱▱  420k / 1M
+⏳ 5-hour 63% ▰▰▰▰▰▰▱▱▱▱  ↻ 1h52m    ·    📅 Week 28% ▰▰▰▱▱▱▱▱▱▱  ↻ Thu 09:00
 🔥 Cache 38m    ·    ⏱️ Session 2h07m    ·    🪙 Tokens 184k
 ```
 
@@ -83,8 +83,10 @@ always visible, so they can decide on the spot whether to start a big task, comp
   `◐` or `❄` looked uneven); the `↻` before a reset time is a value marker, not a label icon, and
   stays a plain symbol.
 - Labels are capitalised words, each with an icon: `🧠 Context`, `⏳ 5-hour`, `📅 Week`, `🔥 Cache`, `⏱️ Session` and `🪙 Tokens` (dim, so values stand
-  out); readings in a row are split by a dim `    ·    ` (four spaces each side), the context percentage and its token
-  count included.
+  out); readings in a row are split by a dim `    ·    ` (four spaces each side); the top row is denser,
+  with a dim `  ·  ` (two spaces each side). A bar is followed by two spaces, then what belongs to it: the
+  `↻` reset time, or on the context row the token count directly (no divider there, since the bar and
+  `420k / 1M` are one reading).
 - Layout rule: every group of pieces that must sit on one line is an explicit `flexDirection="row"`
   Box. The desktop app stacks loose siblings (a fragment) vertically.
 - Colour by level: blue below 75 %, yellow from 75 %, red from 90 % — applied to the number and its

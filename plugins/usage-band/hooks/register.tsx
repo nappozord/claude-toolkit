@@ -134,6 +134,10 @@ const BAR_GLYPH = '▰'
 /** Below this many cells the 5-hour and weekly readings no longer fit one row: they stack. */
 const NARROW_COLUMNS = 80
 const SEP = '    ·    '
+/** The top row (workspace, prompts, cost) is denser: a tighter divider. */
+const HEADER_SEP = '  ·  '
+/** Between a bar and what follows it (a reset time, the context token count). */
+const AFTER_BAR = '  '
 
 export const register: Register = on => {
   on('session.start', async ($, e, next) => {
@@ -268,6 +272,7 @@ export const register: Register = on => {
 
     const Label = ({ children }: { children: string }) => <Text dimColor>{children}</Text>
     const Gap = () => <Text dimColor>{SEP}</Text>
+    const HeaderGap = () => <Text dimColor>{HEADER_SEP}</Text>
 
     // One reading: the bold percentage, then a 10-cell bar. Filled and empty cells are the same glyph
     // (so they are the same height), the empty ones in the theme's subtle colour.
@@ -320,14 +325,14 @@ export const register: Register = on => {
           <Box flexDirection="row" alignItems="center">
             {ws ? <Label>📁 </Label> : null}
             {ws ? <Text>{ws.isWorktree ? `${ws.folder} 🌳` : ws.folder}</Text> : null}
-            {ws?.git ? <Gap /> : null}
+            {ws?.git ? <HeaderGap /> : null}
             {ws?.git ? <Label>🌿 </Label> : null}
             {ws?.git ? <Text>{branchLabel(ws.git)}</Text> : null}
           </Box>
           <Box flexDirection="row" alignItems="center">
             <Label>💬 Prompts </Label>
             <Text>{String(turns)}</Text>
-            {cost ? <Gap /> : null}
+            {cost ? <HeaderGap /> : null}
             {cost ? <Label>💵 Cost </Label> : null}
             {cost ? <Text>{price(cost.usd)}</Text> : null}
           </Box>
@@ -341,21 +346,21 @@ export const register: Register = on => {
         <Box flexDirection="row" alignItems="center">
           <Label>🧠 Context </Label>
           <Percent name="context" value={context.percent} />
-          <Gap />
+          <Text>{AFTER_BAR}</Text>
           <Text>{`${context.tokens === undefined ? '—' : compactTokens(context.tokens)} / ${compactTokens(context.window)}`}</Text>
         </Box>
         <Box key="limits" flexDirection={isNarrow ? 'column' : 'row'}>
           <Box flexDirection="row" alignItems="center">
             <Label>⏳ 5-hour </Label>
             <Percent name="five" value={five?.percentUsed} />
-            {five ? <Text> </Text> : null}
+            {five ? <Text>{AFTER_BAR}</Text> : null}
             {five ? <Text dimColor>{`↻ ${untilReset(five.resetsAt)}`}</Text> : null}
           </Box>
           {isNarrow ? null : <Gap />}
           <Box flexDirection="row" alignItems="center">
             <Label>📅 Week </Label>
             <Percent name="week" value={week?.percentUsed} />
-            {week ? <Text> </Text> : null}
+            {week ? <Text>{AFTER_BAR}</Text> : null}
             {week ? <Text dimColor>{`↻ ${resetMoment(week.resetsAt, now)}`}</Text> : null}
           </Box>
         </Box>

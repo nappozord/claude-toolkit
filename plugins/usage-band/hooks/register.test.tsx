@@ -483,7 +483,7 @@ test('the top row shows the workspace and, in the corner, price, prompts and mod
 
     expect(words).toContain('📁 my-app')
     expect(words).toContain('🌿 main ↑2 ↓1')
-    expect(words).toContain('💬 Prompts 12    ·    💵 Cost $1.84')
+    expect(words).toContain('💬 Prompts 12  ·  💵 Cost $1.84')
     expect(words).not.toContain('≈')
     expect(words).not.toContain('Model')
     expect(words).not.toContain('🌳')
@@ -526,7 +526,7 @@ test('no cost ledger hides the price', async ($, on) => {
   const words = await allText(ui)
   expect(words).not.toContain('💵')
   expect(words).toContain('💬 Prompts 12')
-  expect(words).not.toContain('·    💵')
+  expect(words).not.toContain('·  💵')
   await ui.unmount()
 })
 
@@ -595,16 +595,40 @@ test('the 30-second tick refreshes the branch', async ($, on) => {
   await ui.unmount()
 })
 
-test('the dot dividers have four spaces on each side', async ($, on) => {
+test('the top row uses a tight divider, the usage rows a wide one', async ($, on) => {
+  mock.clock(on, { now: NOW })
+  answerUsage(on, { ...FULL, cost: { usd: 1.8449 } })
+  await startSession($)
+
+  const ui = await $.ui.mount(band('desktop'))
+  const words = await allText(ui)
+  expect(words).toContain('📁 my-app  ·  🌿 main ↑2 ↓1')
+  expect(words).toContain('💬 Prompts 12  ·  💵 Cost $1.84')
+  expect(words).toContain('↻ 1h52m    ·    📅 Week')
+  expect(words).toContain('Cache —    ·    ⏱️ Session')
+  const dots = (await ui.findAll({ type: 'Text', text: /·/ })).map((d: any) => d.text)
+  expect(dots.filter((d: string) => d === '  ·  ')).toHaveLength(2)
+  expect(dots.every((d: string) => d === '  ·  ' || d === '    ·    ')).toBe(true)
+  await ui.unmount()
+})
+
+test('the context bar runs straight into its token count, with no divider', async ($, on) => {
   mock.clock(on, { now: NOW })
   answerUsage(on, FULL)
 
   const ui = await $.ui.mount(band('desktop'))
-  const dots = await ui.findAll({ type: 'Text', text: /·/ })
-  expect(dots.length).toBeGreaterThan(0)
-  for (const dot of dots) {
-    expect(dot.text).toBe('    ·    ')
-  }
+  expect(await allText(ui)).toMatch(/🧠 Context 42%▰{10}  420k \/ 1M/)
+  await ui.unmount()
+})
+
+test('a reset time sits two spaces after its bar', async ($, on) => {
+  mock.clock(on, { now: NOW })
+  answerUsage(on, FULL)
+
+  const ui = await $.ui.mount(band('desktop'))
+  const words = await allText(ui)
+  expect(words).toMatch(/63%▰{10}  ↻ 1h52m/)
+  expect(words).toMatch(/28%▰{10}  ↻ Thu 09:00/)
   await ui.unmount()
 })
 
