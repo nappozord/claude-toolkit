@@ -39,10 +39,14 @@ const refreshWorkspace = async ($: EngineInterface): Promise<void> => {
   // (HEAD, refs, commits) and never runs `status`, `diff` or anything else that refreshes the index:
   // those can run programs a repository's own config names (fsmonitor, clean filters). fsmonitor is
   // also forced off and optional locks skipped; repo hooks are already off for git a mod runs.
+  // No network either: in a partial clone, counting commits could lazily fetch missing objects through
+  // a transport the repo's config chooses, so lazy fetch is off and every transport protocol refused.
   const git = async (...args: string[]) => {
     try {
-      const r = await $.process.run(['git', '-c', 'core.fsmonitor=false', '--no-optional-locks', ...args], {
+      const argv = ['git', '-c', 'core.fsmonitor=false', '-c', 'protocol.allow=never', '--no-optional-locks', ...args]
+      const r = await $.process.run(argv, {
         cwd,
+        env: { GIT_NO_LAZY_FETCH: '1' },
         timeoutMs: GIT_TIMEOUT_MS,
       })
 

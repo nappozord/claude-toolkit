@@ -103,9 +103,12 @@ always visible, so they can decide on the spot whether to start a big task, comp
 - Security: the band runs git in whatever folder a session opens, possibly a repository someone else
   wrote. So it never runs `status`, `diff` or anything else that refreshes the index or reads the
   working tree, because those can launch programs the repository's own config names (fsmonitor,
-  clean/smudge filters). Every call is also `git -c core.fsmonitor=false --no-optional-locks …`, and
-  repo hooks are already off for git that a mod runs. (An earlier version used `git status` with only
-  fsmonitor off; a security review pointed out filters could still run.)
+  clean/smudge filters). Every call is also
+  `git -c core.fsmonitor=false -c protocol.allow=never --no-optional-locks …` with
+  `GIT_NO_LAZY_FETCH=1`: no network at all, because in a partial clone counting commits could otherwise
+  fetch missing objects through a transport the repository's config chooses. Repo hooks are already
+  off for git that a mod runs. (Earlier versions used `git status` with only fsmonitor off, then
+  record-only reads without the network lock; security reviews pointed out filters and lazy fetches.)
 - Draws on every surface (desktop app, terminal). Yields the band to surveys (`hasSurvey`).
 
 ## Non-goals (for now)

@@ -73,7 +73,7 @@ const answerUsage = (
     cwd?: string
     model?: string
     turns?: number
-    git?: (argv: string[]) => Repo
+    git?: (argv: string[], env: Record<string, string> | undefined) => Repo
   } = {},
 ) => {
   on('session.usage', () => ({ value: usage }))
@@ -81,7 +81,7 @@ const answerUsage = (
   on('session.model', () => ({ value: model }))
   on('session.turns', () => ({ value: turns }))
   on('process.run', (_: any, e: any) => {
-    const { exitCode, stdout } = gitAnswer(git([...e.argv]), [...e.argv])
+    const { exitCode, stdout } = gitAnswer(git([...e.argv], e.init?.env), [...e.argv])
 
     return {
       value: {
@@ -590,7 +590,8 @@ test('the dot dividers have four spaces on each side', async ($, on) => {
 test('git is only asked about its records, never the working tree, so repo config cannot run a program', async ($, on) => {
   mock.clock(on, { now: NOW })
   const argvs: string[][] = []
-  answerUsage(on, FULL, { git: argv => (argvs.push(argv), MAIN) })
+  const envs: (Record<string, string> | undefined)[] = []
+  answerUsage(on, FULL, { git: (argv, env) => (argvs.push(argv), envs.push(env), MAIN) })
   await startSession($)
 
   const ui = await $.ui.mount(band('desktop'))
@@ -601,8 +602,12 @@ test('git is only asked about its records, never the working tree, so repo confi
   const ALLOWED = ['symbolic-ref', 'rev-parse', 'rev-list']
   expect(argvs.length).toBeGreaterThan(0)
   for (const argv of argvs) {
-    expect(argv.slice(0, 4)).toEqual(['git', '-c', 'core.fsmonitor=false', '--no-optional-locks'])
-    expect(ALLOWED).toContain(argv[4])
+    expect(argv.slice(0, 6)).toEqual(['git', '-c', 'core.fsmonitor=false', '-c', 'protocol.allow=never', '--no-optional-locks'])
+    expect(ALLOWED).toContain(argv[6])
+  }
+  // A partial clone would otherwise fetch missing objects (running the repo's transport) to count commits.
+  for (const env of envs) {
+    expect(env?.GIT_NO_LAZY_FETCH).toBe('1')
   }
 })
 
