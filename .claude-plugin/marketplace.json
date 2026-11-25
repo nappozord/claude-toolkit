@@ -1,0 +1,24 @@
+{
+  "name": "claude-toolkit",
+  "owner": { "name": "nappozord" },
+  "metadata": {
+    "description": "nappozord's Claude Code plugins: mods, hooks, skills and commands."
+  },
+  "plugins": [
+    {
+      "name": "usage-band",
+      "source": "./plugins/usage-band",
+      "description": "A band above the prompt: folder and branch, prompts and cost, context window, 5-hour and weekly limits, cache countdown, session time and tokens."
+    },
+    {
+      "name": "no-push-guard",
+      "source": "./plugins/no-push-guard",
+      "description": "Denies every git push (including force and dry-run): pushing is always done by the user."
+    },
+    {
+      "name": "no-coauthor",
+      "source": "./plugins/no-coauthor",
+      "description": "Keeps Claude out of commit and PR attribution: no co-author or 'Generated with' lines."
+    }
+  ]
+}

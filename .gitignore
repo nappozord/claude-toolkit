@@ -1,0 +1,6 @@
+# macOS
+.DS_Store
+
+# Written by Claude Code each time it loads a plugin from a folder: editor types, regenerated on load.
+plugins/*/.claude-plugin/types/
+plugins/*/tsconfig.json

@@ -1,0 +1,55 @@
+# usage-band
+
+A Claude Code mod that keeps your workspace and your usage in view: a band above the prompt, in the
+desktop app and the terminal.
+
+```
+📁 my-app    ·    🌿 main ↑2 ↓0                        💬 Prompts 12    ·    💵 Cost $1.84
+──────────────────────────────────────────────────────────────────────────────────────────────
+🧠 Context 42% ▰▰▰▰▱▱▱▱▱▱    ·    420k / 1M
+⏳ 5-hour 63% ▰▰▰▰▰▰▱▱▱▱ ↻ 1h52m    ·    📅 Week 28% ▰▰▰▱▱▱▱▱▱▱ ↻ Thu 16:00
+🔥 Cache 38m    ·    ⏱️ Session 2h07m    ·    🪙 Tokens 184k
+```
+
+| Reading | What it means |
+| --- | --- |
+| `📁` | The folder the session works in; `🌳` after it when that is a git worktree, not the main checkout. |
+| `🌿` | The current branch: `↑2 ↓0` = 2 commits not pushed, 0 on the remote not pulled; `✓` in sync; `(not pushed)` when the branch has no remote copy. Hidden outside a git repository. |
+| `💬 Prompts` | How many prompts you have sent this session. |
+| `💵 Cost` | The session's cost as Claude Code estimates it: an estimate, not a bill (a subscription is not billed per token). |
+| `🧠 Context` | How full the context window is, and the tokens in it over the window size. |
+| `⏳ 5-hour` | Use of the 5-hour rate-limit window and how long until it resets. |
+| `📅 Week` | Use of the weekly window and the weekday and time it resets (local time, 24-hour clock: `16:00`). |
+| `🔥 Cache` | How long the prompt cache of your last message stays warm; `🧊 Cold` once it has expired, so the next message re-sends the conversation at full price. |
+| `⏱️ Session` | Time since the session started. |
+| `🪙 Tokens` | Tokens sent and received by every model step this session, subagents included, cache reads left out. Counted by the band from the moment it is loaded; `/clear` starts it over. Interrupted replies, `/compact` and other mods' model calls are not counted, so it can sit a little under `/cost`. |
+
+Percentages and the cache countdown are bold; each percentage has a 10-cell bar beside it: blue under
+75 %, yellow from 75 %, red from 90 %. The cache countdown turns yellow with 20 minutes left and red
+with 10. A reset time already past reads `↻ now`. A reading not available yet (before the first reply,
+or rate limits on an API-key account) shows `—`.
+
+Prompts and cost sit in the top-right corner and wrap under the folder and branch only when the
+window is too narrow for both; the 5-hour and weekly readings stack on two rows under 80 columns. The band steps aside
+while a survey uses that spot, and you can collapse it with the `[-]` next to it.
+
+It redraws whenever Claude Code reports new usage figures and every 30 seconds. Git is read when the
+session starts, after every shell command Claude runs, and every 30 seconds.
+
+## Files
+
+- `hooks/register.tsx` — records each model request, reads git, and draws the band.
+- `hooks/format.ts` — the formatting rules (bars, colours, durations, token counts, cache lifetime,
+  git branch line, price).
+- `types/index.d.ts` — what the band keeps in session state.
+- `DESIGN.md` — what it shows and why.
+
+## Develop
+
+```bash
+claude plugin test .
+```
+
+```bash
+claude plugin validate .
+```

@@ -1,0 +1,6 @@
+{
+  "name": "no-coauthor",
+  "version": "0.1.0",
+  "author": { "name": "nappozord" },
+  "description": "Keeps Claude out of commit and PR attribution: blanks the attribution text and denies commits or PRs that carry a Claude co-author or 'Generated with' line."
+}

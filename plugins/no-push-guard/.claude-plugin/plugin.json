@@ -1,0 +1,6 @@
+{
+  "name": "no-push-guard",
+  "version": "0.1.0",
+  "author": { "name": "nappozord" },
+  "description": "Denies every git push (including force and dry-run): pushing is always done by the user."
+}
