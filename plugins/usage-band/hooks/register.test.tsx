@@ -65,21 +65,38 @@ const gitAnswer = (repo: Repo, argv: string[]): { exitCode: number; stdout: stri
   return { exitCode: 129, stdout: '' } // a command the band should not run
 }
 
-// Stands for the engine: /cost figures, the session's directory, model and prompt count, and git.
+// Stands for the engine: /cost figures, the session's id, directory, model and prompt count, git, and
+// the plugin's store (kept between sessions). Returns that store, so a test can read what was saved.
 const answerUsage = (
   on: any,
   usage: SessionUsage,
-  { cwd = '/Users/me/repos/my-app', model = 'claude-opus-5-5', turns = 12, git = () => MAIN }: {
+  {
+    cwd = '/Users/me/repos/my-app',
+    model = 'claude-opus-5-5',
+    turns = 12,
+    git = () => MAIN,
+    sessionId = () => 's1',
+    stored = {},
+  }: {
     cwd?: string
     model?: string
     turns?: number
     git?: (argv: string[], env: Record<string, string> | undefined) => Repo
+    sessionId?: () => string
+    stored?: Record<string, unknown>
   } = {},
 ) => {
+  const store = new Map<string, unknown>(Object.entries(stored))
+
   on('session.usage', () => ({ value: usage }))
+  on('session.id', () => ({ value: sessionId() }))
   on('session.cwd', () => ({ value: cwd }))
   on('session.model', () => ({ value: model }))
   on('session.turns', () => ({ value: turns }))
+  on('store.get', (_: any, e: any) => ({ value: store.get(e.key) }))
+  on('store.set', (_: any, e: any) => (store.set(e.key, e.value), { value: undefined }))
+  on('store.delete', (_: any, e: any) => (store.delete(e.key), { value: undefined }))
+  on('store.keys', () => ({ value: [...store.keys()] }))
   on('process.run', (_: any, e: any) => {
     const { exitCode, stdout } = gitAnswer(git([...e.argv], e.init?.env), [...e.argv])
 
@@ -94,6 +111,10 @@ const answerUsage = (
     }
   })
   on('session.start', (_: any, e: any) => ({ cwd: e.cwd }))
+  on('session.end', (_: any, e: any) => ({ sessionId: e.sessionId }))
+  on('session.measure', (_: any, e: any) => ({ changed: e.changed }))
+
+  return store
 }
 
 const startSession = ($: any) => $.session.start({ cwd: '/', surface: 'desktop', isInteractive: true })
@@ -251,9 +272,10 @@ test('yields the band to a survey', async ($, on) => {
 
 test('/clear starts the tally over', async ($, on) => {
   mock.clock(on, { now: NOW })
-  answerUsage(on, EMPTY)
-  on('session.end', (_, e) => ({ sessionId: e.sessionId }))
+  let id = 's1'
+  answerUsage(on, EMPTY, { sessionId: () => id })
   await runStep($, on, USAGE)
+  id = 's2' // /clear gives the conversation a new session id
   await $.session.end({ reason: 'clear', sessionId: 's1', resume: {} as any })
 
   const ui = await $.ui.mount(band('desktop'))
@@ -266,7 +288,6 @@ test('/clear starts the tally over', async ($, on) => {
 test('leaving the session keeps the tally', async ($, on) => {
   mock.clock(on, { now: NOW })
   answerUsage(on, EMPTY)
-  on('session.end', (_, e) => ({ sessionId: e.sessionId }))
   await runStep($, on, USAGE)
   await $.session.end({ reason: 'prompt_input_exit', sessionId: 's1', resume: {} as any })
 
@@ -618,5 +639,152 @@ test('a detached HEAD reads detached', async ($, on) => {
 
   const ui = await $.ui.mount(band('desktop'))
   expect(await allText(ui)).toContain('🌿 detached (not pushed)')
+  await ui.unmount()
+})
+
+const DAY = 86_400_000
+const LIMITS = [
+  { kind: 'five_hour', percentUsed: 63, resetsAt: new Date(NOW + 6_720_000).toISOString() },
+  { kind: 'seven_day', percentUsed: 28, resetsAt: new Date(2026, 10, 26, 9, 0).toISOString() },
+]
+
+test('limits remembered from an earlier session show before the first reply', async ($, on) => {
+  mock.clock(on, { now: NOW })
+  answerUsage(on, EMPTY, { stored: { limits: { at: NOW - 60_000, rateLimits: LIMITS } } })
+  await startSession($)
+
+  const ui = await $.ui.mount(band('desktop'))
+  const words = await allText(ui)
+  expect(words).toContain('5-hour 63%')
+  expect(words).toContain('Week 28%')
+  expect(words).toContain('↻ 1h52m')
+  await ui.unmount()
+})
+
+test('a remembered window whose reset has passed reads 0%', async ($, on) => {
+  mock.clock(on, { now: NOW })
+  answerUsage(on, EMPTY, {
+    stored: { limits: { at: NOW - 6 * 3_600_000, rateLimits: [{ kind: 'five_hour', percentUsed: 97, resetsAt: new Date(NOW - 1_000).toISOString() }] } },
+  })
+  await startSession($)
+
+  const ui = await $.ui.mount(band('desktop'))
+  expect(await allText(ui)).toContain('5-hour 0%')
+  await ui.unmount()
+})
+
+test('live limits win over remembered ones and are remembered for the next session', async ($, on) => {
+  mock.clock(on, { now: NOW })
+  const live = { ...FULL, rateLimits: [{ kind: 'five_hour', percentUsed: 70, resetsAt: LIMITS[0]!.resetsAt }] }
+  const store = answerUsage(on, live, { stored: { limits: { at: NOW - 60_000, rateLimits: LIMITS } } })
+  await startSession($)
+  await $.session.measure({ context: live.context, rateLimits: live.rateLimits, changed: ['rateLimits'] })
+
+  const ui = await $.ui.mount(band('desktop'))
+  expect(await allText(ui)).toContain('5-hour 70%')
+  await ui.unmount()
+  expect(store.get('limits')).toEqual({ at: NOW, rateLimits: live.rateLimits })
+})
+
+test('a session saves its tokens and cache timer after each reply', async ($, on) => {
+  mock.clock(on, { now: NOW })
+  const store = answerUsage(on, EMPTY, { sessionId: () => 'abc' })
+  await runStep($, on, USAGE)
+
+  expect(store.get('session:abc')).toEqual({
+    tally: { tokens: 1_150, lastRequestAt: NOW, cacheTtl: '1h' },
+    savedAt: NOW,
+  })
+})
+
+test('resuming a saved session shows its tokens and a still-warm cache', async ($, on) => {
+  mock.clock(on, { now: NOW })
+  answerUsage(on, EMPTY, {
+    sessionId: () => 'abc',
+    stored: { 'session:abc': { tally: { tokens: 254_000, lastRequestAt: NOW - 20 * 60_000, cacheTtl: '1h' }, savedAt: NOW - 20 * 60_000 } },
+  })
+  await startSession($)
+
+  const ui = await $.ui.mount(band('desktop'))
+  const words = await allText(ui)
+  expect(words).toContain('Tokens 254k')
+  expect(words).toContain('Cache 40m')
+  await ui.unmount()
+})
+
+test('resuming a saved session whose cache has expired shows cold', async ($, on) => {
+  mock.clock(on, { now: NOW })
+  answerUsage(on, EMPTY, {
+    sessionId: () => 'abc',
+    stored: { 'session:abc': { tally: { tokens: 9_000, lastRequestAt: NOW - 2 * 3_600_000, cacheTtl: '1h' }, savedAt: NOW - 2 * 3_600_000 } },
+  })
+  await startSession($)
+
+  const ui = await $.ui.mount(band('desktop'))
+  const words = await allText(ui)
+  expect(words).toContain('Tokens 9k')
+  expect(words).toContain('🧊 Cold')
+  await ui.unmount()
+})
+
+test('a damaged saved entry is ignored', async ($, on) => {
+  mock.clock(on, { now: NOW })
+  answerUsage(on, EMPTY, { sessionId: () => 'abc', stored: { 'session:abc': { tally: 'nope' }, limits: 42 } })
+  await startSession($)
+
+  const ui = await $.ui.mount(band('desktop'))
+  const words = await allText(ui)
+  expect(words).toContain('Tokens 0')
+  expect(words).toContain('5-hour —')
+  await ui.unmount()
+})
+
+test('saved sessions older than 30 days are dropped at start', async ($, on) => {
+  mock.clock(on, { now: NOW })
+  const tally = { tokens: 1, lastRequestAt: null, cacheTtl: null }
+  const store = answerUsage(on, EMPTY, {
+    sessionId: () => 'new',
+    stored: {
+      'session:old': { tally, savedAt: NOW - 31 * DAY },
+      'session:recent': { tally, savedAt: NOW - 2 * DAY },
+      limits: { at: NOW - 40 * DAY, rateLimits: LIMITS },
+    },
+  })
+  await startSession($)
+
+  expect(store.has('session:old')).toBe(false)
+  expect(store.has('session:recent')).toBe(true)
+  expect(store.has('limits')).toBe(true)
+})
+
+test('/clear starts the new conversation from zero and saves under its new id', async ($, on) => {
+  mock.clock(on, { now: NOW })
+  let id = 'first'
+  const store = answerUsage(on, EMPTY, { sessionId: () => id })
+  await runStep($, on, USAGE)
+
+  id = 'second'
+  await $.session.end({ reason: 'clear', sessionId: 'first', resume: {} as any })
+
+  const ui = await $.ui.mount(band('desktop'))
+  expect(await allText(ui)).toContain('Tokens 0')
+  await ui.unmount()
+  expect((store.get('session:first') as any)?.tally.tokens).toBe(1_150)
+})
+
+test('an in-process resume restores the resumed session', async ($, on) => {
+  mock.clock(on, { now: NOW })
+  let id = 'current'
+  answerUsage(on, EMPTY, {
+    sessionId: () => id,
+    stored: { 'session:older': { tally: { tokens: 77_000, lastRequestAt: null, cacheTtl: null }, savedAt: NOW - DAY } },
+  })
+  await startSession($)
+
+  id = 'older'
+  await $.session.end({ reason: 'resume', sessionId: 'current', resume: {} as any })
+
+  const ui = await $.ui.mount(band('desktop'))
+  expect(await allText(ui)).toContain('Tokens 77k')
   await ui.unmount()
 })

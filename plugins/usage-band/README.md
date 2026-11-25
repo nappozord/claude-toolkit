@@ -22,12 +22,17 @@ desktop app and the terminal.
 | `📅 Week` | Use of the weekly window and the weekday and time it resets (local time, 24-hour clock: `16:00`). |
 | `🔥 Cache` | How long the prompt cache of your last message stays warm; `🧊 Cold` once it has expired, so the next message re-sends the conversation at full price. |
 | `⏱️ Session` | Time since the session started. |
-| `🪙 Tokens` | Tokens sent and received by every model step this session, subagents included, cache reads left out. Counted by the band from the moment it is loaded; `/clear` starts it over. Interrupted replies, `/compact` and other mods' model calls are not counted, so it can sit a little under `/cost`. |
+| `🪙 Tokens` | Tokens sent and received by every model step this session, subagents included, cache reads left out. Counted by the band and saved per session, so resuming a session brings its count (and cache timer) back; `/clear` starts from 0. Interrupted replies, `/compact` and other mods' model calls are not counted, so it can sit a little under `/cost`. |
 
 Percentages and the cache countdown are bold; each percentage has a 10-cell bar beside it: blue under
 75 %, yellow from 75 %, red from 90 %. The cache countdown turns yellow with 20 minutes left and red
-with 10. A reset time already past reads `↻ now`. A reading not available yet (before the first reply,
-or rate limits on an API-key account) shows `—`.
+with 10. A reset time already past reads `↻ now`. Before a session's first reply the 5-hour and weekly
+readings are the last ones seen in any session (a window that has reset since reads `0%`). A reading
+not available at all (rate limits on an API-key account, or before any reply ever) shows `—`.
+
+The band keeps a small file under `~/.claude/plugins/store/` with those last readings and each
+session's token count and cache timer, for 30 days. It stays on your machine and is removed with the
+plugin.
 
 Prompts and cost sit in the top-right corner and wrap under the folder and branch only when the
 window is too narrow for both; the 5-hour and weekly readings stack on two rows under 80 columns. The band steps aside

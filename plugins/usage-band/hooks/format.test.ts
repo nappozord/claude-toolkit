@@ -1,6 +1,6 @@
 import { expect, test } from 'claude-code/testing'
 
-import { branchLabel, cacheLevel, filledCells, parseCounts, price, cacheLeft, cacheTtlOf, compactTokens, duration, level, resetMoment } from './format'
+import { asSavedSession, asStoredLimits, branchLabel, isExpired, rememberedLimits, cacheLevel, filledCells, parseCounts, price, cacheLeft, cacheTtlOf, compactTokens, duration, level, resetMoment } from './format'
 
 const usage = (extra: object) => ({
   input_tokens: 0, output_tokens: 0, cache_read_input_tokens: 0, cache_creation_input_tokens: 0,
@@ -92,4 +92,43 @@ test('price is dollars with two decimals', async () => {
 test('resetMoment uses the 24-hour clock', async () => {
   const at = new Date(2026, 10, 26, 16, 0) // Thu 26 Nov 2026, 4 pm local
   expect(resetMoment(at.toISOString(), 0)).toBe('Thu 16:00')
+})
+
+test('asSavedSession accepts only a well-formed saved session', async () => {
+  const good = { tally: { tokens: 1200, lastRequestAt: 5, cacheTtl: '1h' }, savedAt: 9 }
+  expect(asSavedSession(good)).toEqual(good)
+  expect(asSavedSession({ tally: { tokens: 3, lastRequestAt: null, cacheTtl: null }, savedAt: 1 })).not.toBe(null)
+  for (const bad of [undefined, null, 7, 'x', {}, { tally: good.tally }, { tally: { tokens: '1' }, savedAt: 1 },
+    { tally: { tokens: 1, lastRequestAt: 'x', cacheTtl: null }, savedAt: 1 },
+    { tally: { tokens: 1, lastRequestAt: null, cacheTtl: '2h' }, savedAt: 1 }]) {
+    expect(asSavedSession(bad)).toBe(null)
+  }
+})
+
+test('asStoredLimits accepts only well-formed remembered limits', async () => {
+  const good = { at: 1, rateLimits: [{ kind: 'five_hour', percentUsed: 63, resetsAt: '2026-11-25T14:00:00.000Z' }] }
+  expect(asStoredLimits(good)).toEqual(good)
+  expect(asStoredLimits({ at: 1, rateLimits: [{ kind: 'seven_day', percentUsed: 5 }] })).not.toBe(null)
+  for (const bad of [undefined, {}, { at: 1 }, { at: 1, rateLimits: 'x' }, { at: 1, rateLimits: [{ kind: 1, percentUsed: 2 }] }]) {
+    expect(asStoredLimits(bad)).toBe(null)
+  }
+})
+
+test('isExpired after 30 days', async () => {
+  const DAY = 86_400_000
+  expect(isExpired(0, 30 * DAY)).toBe(false)
+  expect(isExpired(0, 30 * DAY + 1)).toBe(true)
+})
+
+test('rememberedLimits zeroes a window whose reset has passed', async () => {
+  const now = Date.UTC(2026, 10, 25, 12)
+  const later = new Date(now + 3_600_000).toISOString()
+  const earlier = new Date(now - 1).toISOString()
+  expect(rememberedLimits([
+    { kind: 'five_hour', percentUsed: 63, resetsAt: earlier },
+    { kind: 'seven_day', percentUsed: 28, resetsAt: later },
+  ], now)).toEqual([
+    { kind: 'five_hour', percentUsed: 0 },
+    { kind: 'seven_day', percentUsed: 28, resetsAt: later },
+  ])
 })

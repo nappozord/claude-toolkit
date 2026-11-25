@@ -1,6 +1,6 @@
 import type { TurnUsage } from 'claude-code'
 
-import type { CacheTtl, GitBranch, Tally } from '../types'
+import type { CacheTtl, GitBranch, RememberedLimit, SavedSession, StoredLimits, Tally } from '../types'
 
 /**
  * The calm level's fixed blue. Not a theme key: the desktop app greys the theme's `suggestion` blue
@@ -111,3 +111,55 @@ export const branchLabel = (g: GitBranch): string => {
 
 /** The session's cost as `/cost` estimates it, in dollars: "$1.84". */
 export const price = (usd: number): string => `$${usd.toFixed(2)}`
+
+// ── Saved data ────────────────────────────────────────────────────────────────────────────────────
+// The store hands back plain JSON, possibly written by an older version or damaged: nothing is
+// trusted until its shape is checked. A value that fails is treated as absent.
+
+const SAVED_DAYS = 30
+const isObject = (v: unknown): v is Record<string, unknown> => typeof v === 'object' && v !== null
+const isNumber = (v: unknown): v is number => typeof v === 'number' && Number.isFinite(v)
+
+const asTally = (v: unknown): Tally | null =>
+  isObject(v) &&
+  isNumber(v.tokens) &&
+  (v.lastRequestAt === null || isNumber(v.lastRequestAt)) &&
+  (v.cacheTtl === null || v.cacheTtl === '5m' || v.cacheTtl === '1h')
+    ? { tokens: v.tokens, lastRequestAt: v.lastRequestAt, cacheTtl: v.cacheTtl }
+    : null
+
+/** A `session:<id>` store entry, or null when it is not one. */
+export const asSavedSession = (v: unknown): SavedSession | null => {
+  const tally = isObject(v) ? asTally(v.tally) : null
+
+  return tally && isObject(v) && isNumber(v.savedAt) ? { tally, savedAt: v.savedAt } : null
+}
+
+const asLimit = (v: unknown): RememberedLimit | null =>
+  isObject(v) && typeof v.kind === 'string' && isNumber(v.percentUsed) && (v.resetsAt === undefined || typeof v.resetsAt === 'string')
+    ? v.resetsAt === undefined
+      ? { kind: v.kind, percentUsed: v.percentUsed }
+      : { kind: v.kind, percentUsed: v.percentUsed, resetsAt: v.resetsAt }
+    : null
+
+/** The `limits` store entry, or null when it is not one. */
+export const asStoredLimits = (v: unknown): StoredLimits | null => {
+  if (!isObject(v) || !isNumber(v.at) || !Array.isArray(v.rateLimits)) {
+    return null
+  }
+
+  const rateLimits = v.rateLimits.map(asLimit)
+
+  return rateLimits.every(l => l !== null) ? { at: v.at, rateLimits: rateLimits as RememberedLimit[] } : null
+}
+
+/** A saved session is dropped once it is more than 30 days old. */
+export const isExpired = (savedAt: number, now: number): boolean => now - savedAt > SAVED_DAYS * 86_400_000
+
+/** Remembered windows as of `now`: one whose reset has passed has started over, so it reads 0 %. */
+export const rememberedLimits = (limits: readonly RememberedLimit[], now: number): RememberedLimit[] =>
+  limits.map(l => {
+    const at = l.resetsAt === undefined ? NaN : Date.parse(l.resetsAt)
+
+    return !Number.isNaN(at) && at <= now ? { kind: l.kind, percentUsed: 0 } : l
+  })

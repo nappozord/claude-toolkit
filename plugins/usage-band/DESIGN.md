@@ -51,6 +51,10 @@ always visible, so they can decide on the spot whether to start a big task, comp
   local time on the 24-hour clock, e.g. `Thu 16:00`). A reset already past reads `↻ now` (the figures are only as fresh as
   the last reply). When the band is narrower than 80 cells the two windows stack on two rows, so the
   band is four rows tall instead of wrapping mid-bar.
+  The engine learns the windows only from API response headers, so a new or resumed session has none
+  until its first reply. Until then the band shows the **last reading from any session** (the windows
+  are account-wide), saved in the plugin's store on every measurement with window figures; a window
+  whose reset has passed since then reads `0%` with no reset time, since it has started over.
 - **Row 3 — session** (drawn in the order cache · session time · tokens):
   - **cache:** countdown until the prompt cache expires, counted from when the last main-thread request
     was answered (the first chunk of the reply, so a retry backoff does not count) plus its cache lifetime (5 min or 1 h, read from the request's cache write; a request that
@@ -60,8 +64,11 @@ always visible, so they can decide on the spot whether to start a big task, comp
     *excluding cache reads* (they re-count the whole conversation on every request and would inflate the
     number into the millions). Counts survive compaction, unlike row 1. The engine has no ready-made
     session total, so the band adds each request up itself (kept in session state, so hot reloads keep
-    it): it starts at 0 when the mod is installed mid-session, and `/clear` or a resume starts it (and
-    the cache timer) over. Not counted: a reply that was interrupted before it finished, a `/compact`
+    it) and **saves it per session id** in the plugin's store after every reply, with the cache timer.
+    Resuming a session, in a new process or in-process, restores both (the cache shows its remaining
+    time, or `🧊 Cold`). `/clear` runs the new conversation under a new id, so it starts from 0.
+    Sessions never saved (from before this, or older than the 30-day pruning) start at 0.
+    Not counted: a reply that was interrupted before it finished, a `/compact`
     the engine runs itself, other mods' own model calls and background classifier calls, so the figure
     can sit a little under `/cost`'s.
   - **session time:** time since the session started (resumed sessions count from their first launch).
@@ -87,9 +94,17 @@ always visible, so they can decide on the spot whether to start a big task, comp
 - Cache countdown: blue with more than 20 minutes left, yellow from 20, red from 10; `🧊 Cold` is grey
   (the theme's `inactive`), so an expired cache never looks like a calm blue reading.
 - Labels are dim so the numbers stand out.
-- A reading that is not available yet (e.g. rate limits before the first reply) shows `—`.
+- A reading that is not available yet (e.g. rate limits before any reply, in any session) shows `—`.
 
 ## Behaviour
+
+- **Kept between sessions** in `$.store`, a JSON file of the plugin's own under
+  `~/.claude/plugins/store/` (private to the user, never in the repo, removed with the plugin):
+  `session:<session id>` → `{ tally, savedAt }`, written after every reply, dropped at session start
+  once older than 30 days (or damaged); `limits` → `{ at, rateLimits }`, the latest window reading.
+  Every value read back is shape-checked first (`asSavedSession`, `asStoredLimits`); anything that
+  fails counts as absent. Store failures never break the band: it just behaves as without the store.
+  A hot reload of a session with nothing saved keeps the tally already in memory.
 
 - Redraws when the engine reports changed usage figures, after each turn, and on a 30-second tick so
   countdowns and the session timer keep moving.

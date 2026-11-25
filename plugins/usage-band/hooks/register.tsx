@@ -1,8 +1,10 @@
 import { atom, read, update } from 'claude-code'
 import type { EngineInterface, Register, SessionRateLimit } from 'claude-code'
 
-import type { Tally, Workspace } from '../types'
+import type { StoredLimits, Tally, Workspace } from '../types'
 import {
+  asSavedSession,
+  asStoredLimits,
   branchLabel,
   cacheLeft,
   cacheLevel,
@@ -10,9 +12,11 @@ import {
   compactTokens,
   duration,
   filledCells,
+  isExpired,
   level,
   parseCounts,
   price,
+  rememberedLimits,
   resetMoment,
 } from './format'
 
@@ -28,6 +32,51 @@ import {
 const EMPTY_TALLY: Tally = { tokens: 0, lastRequestAt: null, cacheTtl: null }
 const tally = atom({ plugin: 'usage-band', key: 'tally' } as const, EMPTY_TALLY)
 const workspace = atom({ plugin: 'usage-band', key: 'workspace' } as const, null as Workspace | null)
+/** The last reading of the account-wide windows, from any session: shown until this one has its own. */
+const limits = atom({ plugin: 'usage-band', key: 'limits' } as const, null as StoredLimits | null)
+
+// ── Kept between sessions ($.store, ~/.claude/plugins/store/) ─────────────────────────────────────
+// `session:<id>` holds a session's tally so a resume restores it; `limits` the latest window reading.
+// Every store call is best-effort: a failure leaves the band as it would be without the store.
+const sessionKey = (id: string) => `session:${id}`
+
+/** Saves the current session's tally under its id. */
+const saveTally = async ($: EngineInterface, t: Tally): Promise<void> => {
+  const [id, now] = await Promise.all([$.session.id(), $.clock.now()])
+
+  await $.store.set(sessionKey(id), { tally: t, savedAt: now })
+}
+
+/**
+ * Loads the current session's saved tally. Missing or damaged: `otherwise` decides — the empty
+ * tally for a conversation that just started, or the one in memory (a hot reload of a session that
+ * was running before anything was saved).
+ */
+const restoreTally = async ($: EngineInterface, otherwise: 'empty' | 'keep'): Promise<void> => {
+  const saved = asSavedSession(await $.store.get(sessionKey(await $.session.id())))
+
+  if (saved) {
+    await update($, tally, () => saved.tally)
+  } else if (otherwise === 'empty') {
+    await update($, tally, () => EMPTY_TALLY)
+  }
+  $.ui.invalidate('ui.render')
+}
+
+/** Drops saved sessions older than 30 days, or damaged ones. */
+const pruneSaved = async ($: EngineInterface): Promise<void> => {
+  const [keys, now] = await Promise.all([$.store.keys(), $.clock.now()])
+
+  for (const key of keys.filter(k => k.startsWith('session:'))) {
+    const saved = asSavedSession(await $.store.get(key))
+
+    if (!saved || isExpired(saved.savedAt, now)) {
+      await $.store.delete(key)
+    }
+  }
+}
+
+const quietly = (work: Promise<unknown>) => void work.catch(() => undefined)
 
 const GIT_TIMEOUT_MS = 5_000
 
@@ -90,6 +139,20 @@ export const register: Register = on => {
   on('session.start', async ($, e, next) => {
     const started = await next(e)
 
+    // A resumed session gets its tokens and cache timer back; every session shows the last known
+    // 5-hour and weekly readings until its own first reply brings fresh ones.
+    try {
+      await restoreTally($, 'keep')
+      const remembered = asStoredLimits(await $.store.get('limits'))
+
+      if (remembered) {
+        await update($, limits, () => remembered)
+      }
+      await pruneSaved($)
+    } catch {
+      // No store: the band simply starts empty.
+    }
+
     $.clock.every(TICK_MS, () => {
       $.ui.invalidate('ui.render')
       void refreshWorkspace($).catch(() => undefined)
@@ -130,27 +193,54 @@ export const register: Register = on => {
       const sent = usage.input_tokens + usage.output_tokens + usage.cache_creation_input_tokens
       const isMain = e.agentId === undefined
 
-      await update($, tally, t => ({
+      const next_ = await update($, tally, t => ({
         tokens: t.tokens + sent,
         lastRequestAt: isMain ? at : t.lastRequestAt,
         cacheTtl: isMain ? cacheTtlOf(usage, t.cacheTtl) : t.cacheTtl,
       }))
+
+      try {
+        await saveTally($, next_)
+      } catch {
+        // Not saved: a later resume starts this session from the last saved count.
+      }
     }
 
     return result
   })
 
-  // /clear and a resume start another conversation in this process: its tokens and cache are new.
+  // /clear starts a new conversation in this process, and an in-process resume switches to another:
+  // either way the process now runs under another session id, whose saved tally (if any) is loaded.
   on('session.end', async ($, e, next) => {
+    const ended = await next(e)
+
     if (e.reason === 'clear' || e.reason === 'resume') {
-      await update($, tally, () => EMPTY_TALLY)
-      $.ui.invalidate('ui.render')
+      try {
+        await restoreTally($, 'empty')
+      } catch {
+        await update($, tally, () => EMPTY_TALLY)
+        $.ui.invalidate('ui.render')
+      }
     }
 
-    return next(e)
+    return ended
   })
 
-  on('session.measure', ($, e, next) => {
+  // A measurement with window readings is the freshest: remember it for every later session.
+  on('session.measure', async ($, e, next) => {
+    if (e.rateLimits.length > 0) {
+      const remembered: StoredLimits = {
+        at: await $.clock.now(),
+        rateLimits: e.rateLimits.map(l =>
+          l.resetsAt === undefined
+            ? { kind: l.kind, percentUsed: l.percentUsed }
+            : { kind: l.kind, percentUsed: l.percentUsed, resetsAt: l.resetsAt },
+        ),
+      }
+
+      await update($, limits, () => remembered)
+      quietly($.store.set('limits', remembered))
+    }
     $.ui.invalidate('ui.render')
 
     return next(e)
@@ -162,14 +252,18 @@ export const register: Register = on => {
     }
 
     const { Box, Markdown, Text } = $.ui.resolve(e)
-    const [t, ws, usage, now, turns] = await Promise.all([
+    const [t, ws, remembered, usage, now, turns] = await Promise.all([
       read($, tally),
       read($, workspace),
+      read($, limits),
       $.session.usage(),
       $.clock.now(),
       $.session.turns(),
     ])
-    const { context, rateLimits, startedAt, cost } = usage
+    const { context, startedAt, cost } = usage
+    // This session's own readings once it has them; before its first reply, the last known ones.
+    const rateLimits: readonly SessionRateLimit[] =
+      usage.rateLimits.length > 0 ? usage.rateLimits : rememberedLimits(remembered?.rateLimits ?? [], now)
     const isNarrow = e.props.bodyColumns < NARROW_COLUMNS
 
     const Label = ({ children }: { children: string }) => <Text dimColor>{children}</Text>
