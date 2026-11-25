@@ -11,7 +11,7 @@ import {
   duration,
   filledCells,
   level,
-  parseBranch,
+  parseCounts,
   price,
   resetMoment,
 } from './format'
@@ -35,27 +35,42 @@ const GIT_TIMEOUT_MS = 5_000
 const refreshWorkspace = async ($: EngineInterface): Promise<void> => {
   const cwd = await $.session.cwd()
   const folder = cwd.split('/').filter(Boolean).pop() ?? cwd
+  // The band opens git in whatever folder a session starts in, so it asks git only about its records
+  // (HEAD, refs, commits) and never runs `status`, `diff` or anything else that refreshes the index:
+  // those can run programs a repository's own config names (fsmonitor, clean filters). fsmonitor is
+  // also forced off and optional locks skipped; repo hooks are already off for git a mod runs.
   const git = async (...args: string[]) => {
     try {
-      // fsmonitor off: a repository's own config could otherwise make `git status` run a program.
-      // (Repo hooks are already off for git run by a mod.)
-      const r = await $.process.run(['git', '-c', 'core.fsmonitor=false', ...args], { cwd, timeoutMs: GIT_TIMEOUT_MS })
+      const r = await $.process.run(['git', '-c', 'core.fsmonitor=false', '--no-optional-locks', ...args], {
+        cwd,
+        timeoutMs: GIT_TIMEOUT_MS,
+      })
 
       return r.exitCode === 0 ? r.stdout : null
     } catch {
       return null
     }
   }
-  const [status, dirs] = await Promise.all([
-    git('status', '--porcelain=v2', '--branch', '--untracked-files=no'),
+  const [dirs, head, upstream] = await Promise.all([
     git('rev-parse', '--path-format=absolute', '--git-dir', '--git-common-dir'),
+    git('symbolic-ref', '--short', '-q', 'HEAD'),
+    git('rev-parse', '--abbrev-ref', '--symbolic-full-name', '@{upstream}'),
   ])
+  const counts = upstream === null ? null : await git('rev-list', '--left-right', '--count', '@{upstream}...HEAD')
   const [gitDir, commonDir] = (dirs ?? '').trim().split('\n')
 
   await update($, workspace, () => ({
     folder,
     isWorktree: gitDir !== undefined && commonDir !== undefined && gitDir !== commonDir,
-    git: status === null ? null : parseBranch(status),
+    // Not a repository (or git unreadable): no branch. A detached HEAD has no symbolic ref.
+    git:
+      dirs === null
+        ? null
+        : {
+            branch: head?.trim() || 'detached',
+            ...parseCounts(counts ?? ''),
+            hasUpstream: upstream !== null,
+          },
   }))
   $.ui.invalidate('ui.render')
 }

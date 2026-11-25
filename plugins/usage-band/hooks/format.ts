@@ -87,27 +87,11 @@ export const cacheTtlOf = (u: TurnUsage, previous: CacheTtl | null): CacheTtl =>
   return previous ?? '5m'
 }
 
-/** The branch header of `git status --porcelain=v2 --branch`; null when it has none. */
-export const parseBranch = (porcelain: string): GitBranch | null => {
-  const header = (name: string) => {
-    const prefix = `# branch.${name} `
+/** `git rev-list --left-right --count @{upstream}...HEAD` ("behind\tahead"); zeros when unreadable. */
+export const parseCounts = (out: string): { behind: number; ahead: number } => {
+  const m = /^(\d+)\s+(\d+)/.exec(out.trim())
 
-    return porcelain.split('\n').find(line => line.startsWith(prefix))?.slice(prefix.length)
-  }
-  const head = header('head')
-
-  if (head === undefined) {
-    return null
-  }
-
-  const ab = /^\+(\d+) -(\d+)$/.exec(header('ab') ?? '')
-
-  return {
-    branch: head === '(detached)' ? 'detached' : head,
-    ahead: ab ? Number(ab[1]) : 0,
-    behind: ab ? Number(ab[2]) : 0,
-    hasUpstream: header('upstream') !== undefined,
-  }
+  return m ? { behind: Number(m[1]), ahead: Number(m[2]) } : { behind: 0, ahead: 0 }
 }
 
 /** "main ↑2 ↓0", "main ✓" in sync, "feat/x (not pushed)" with no upstream. */

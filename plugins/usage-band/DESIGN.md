@@ -92,14 +92,20 @@ always visible, so they can decide on the spot whether to start a big task, comp
 
 - Redraws when the engine reports changed usage figures, after each turn, and on a 30-second tick so
   countdowns and the session timer keep moving.
-- Git is read with `git status --porcelain=v2 --branch --untracked-files=no` and
-  `git rev-parse --path-format=absolute --git-dir --git-common-dir` (5 s timeout) at session start, after every `Bash` tool
-  call (git commands and branch switches run there) and on the 30-second tick. The result is kept in
-  session state; drawing reads that, so a slow repository never delays the band. A failed read keeps
-  the folder alone.
-- Every git call runs as `git -c core.fsmonitor=false …`: the band reads git in whatever folder a
-  session opens, and a repository's own config could otherwise make `git status` launch a program
-  (its fsmonitor). Repo hooks are already off for git that a mod runs.
+- Git is read (5 s timeout each) at session start, after every `Bash` tool call (git commands and
+  branch switches run there) and on the 30-second tick, with four record-only commands:
+  `rev-parse --path-format=absolute --git-dir --git-common-dir` (is it a repo, is it a worktree),
+  `symbolic-ref --short -q HEAD` (branch; failing = detached), `rev-parse --abbrev-ref
+  --symbolic-full-name @{upstream}` (upstream; failing = not pushed) and, with an upstream,
+  `rev-list --left-right --count @{upstream}...HEAD` (behind / ahead). The result is kept in session
+  state; drawing reads that, so a slow repository never delays the band. A failed read keeps the
+  folder alone.
+- Security: the band runs git in whatever folder a session opens, possibly a repository someone else
+  wrote. So it never runs `status`, `diff` or anything else that refreshes the index or reads the
+  working tree, because those can launch programs the repository's own config names (fsmonitor,
+  clean/smudge filters). Every call is also `git -c core.fsmonitor=false --no-optional-locks …`, and
+  repo hooks are already off for git that a mod runs. (An earlier version used `git status` with only
+  fsmonitor off; a security review pointed out filters could still run.)
 - Draws on every surface (desktop app, terminal). Yields the band to surveys (`hasSurvey`).
 
 ## Non-goals (for now)

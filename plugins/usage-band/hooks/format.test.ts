@@ -1,6 +1,6 @@
 import { expect, test } from 'claude-code/testing'
 
-import { branchLabel, cacheLevel, filledCells, parseBranch, price, cacheLeft, cacheTtlOf, compactTokens, duration, level, resetMoment } from './format'
+import { branchLabel, cacheLevel, filledCells, parseCounts, price, cacheLeft, cacheTtlOf, compactTokens, duration, level, resetMoment } from './format'
 
 const usage = (extra: object) => ({
   input_tokens: 0, output_tokens: 0, cache_read_input_tokens: 0, cache_creation_input_tokens: 0,
@@ -68,14 +68,11 @@ test('cacheTtlOf reads the write, else keeps the previous', async () => {
   expect(cacheTtlOf(usage({}), null)).toBe('5m')
 })
 
-test('parseBranch reads git status --porcelain=v2 --branch', async () => {
-  expect(parseBranch('# branch.oid abc\n# branch.head main\n# branch.upstream origin/main\n# branch.ab +2 -1\n'))
-    .toEqual({ branch: 'main', ahead: 2, behind: 1, hasUpstream: true })
-  expect(parseBranch('# branch.oid abc\n# branch.head feat/x\n'))
-    .toEqual({ branch: 'feat/x', ahead: 0, behind: 0, hasUpstream: false })
-  expect(parseBranch('# branch.oid abc\n# branch.head (detached)\n'))
-    .toEqual({ branch: 'detached', ahead: 0, behind: 0, hasUpstream: false })
-  expect(parseBranch('')).toBe(null)
+test('parseCounts reads git rev-list --left-right --count @{upstream}...HEAD', async () => {
+  expect(parseCounts('1\t2\n')).toEqual({ behind: 1, ahead: 2 })
+  expect(parseCounts('0\t0')).toEqual({ behind: 0, ahead: 0 })
+  expect(parseCounts('')).toEqual({ behind: 0, ahead: 0 })
+  expect(parseCounts('garbage')).toEqual({ behind: 0, ahead: 0 })
 })
 
 test('branchLabel shows sync with the remote', async () => {

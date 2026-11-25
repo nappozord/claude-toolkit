@@ -43,22 +43,37 @@ const band = (surface: (typeof SURFACES)[number], hasSurvey = false) => ({
   },
 }) as const
 
-const GIT_STATUS = '# branch.oid abc\n# branch.head main\n# branch.upstream origin/main\n# branch.ab +2 -1\n'
-const GIT_DIRS_MAIN = '.git\n.git\n'
+const GIT_DIRS_MAIN = '/repo/.git\n/repo/.git\n'
 const GIT_DIRS_WORKTREE = '/repo/.git/worktrees/wt\n/repo/.git\n'
 
-// What git answers in a test: `status` and `dirs` are the stdout of the two commands; null = not a repo.
-type Git = { status: string; dirs: string } | null
+/**
+ * A repository as the test's git sees it; null = not a repository.
+ * `branch` null = detached HEAD; `upstream` null = no upstream; `counts` = `git rev-list --left-right
+ * --count @{upstream}...HEAD` output ("behind\tahead").
+ */
+type Repo = { branch: string | null; upstream: string | null; counts: string; dirs: string } | null
+
+const MAIN: Repo = { branch: 'main', upstream: 'origin/main', counts: '1\t2\n', dirs: GIT_DIRS_MAIN }
+
+// Answers one git command the way git would for `repo`: exit code and stdout.
+const gitAnswer = (repo: Repo, argv: string[]): { exitCode: number; stdout: string } => {
+  if (repo === null) return { exitCode: 128, stdout: '' }
+  if (argv.includes('symbolic-ref')) return repo.branch ? { exitCode: 0, stdout: `${repo.branch}\n` } : { exitCode: 1, stdout: '' }
+  if (argv.includes('rev-list')) return repo.upstream ? { exitCode: 0, stdout: repo.counts } : { exitCode: 128, stdout: '' }
+  if (argv.some(a => a.includes('@{upstream}'))) return repo.upstream ? { exitCode: 0, stdout: `${repo.upstream}\n` } : { exitCode: 128, stdout: '' }
+  if (argv.includes('--git-dir')) return { exitCode: 0, stdout: repo.dirs }
+  return { exitCode: 129, stdout: '' } // a command the band should not run
+}
 
 // Stands for the engine: /cost figures, the session's directory, model and prompt count, and git.
 const answerUsage = (
   on: any,
   usage: SessionUsage,
-  { cwd = '/Users/me/repos/my-app', model = 'claude-opus-5-5', turns = 12, git = () => ({ status: GIT_STATUS, dirs: GIT_DIRS_MAIN }) as Git }: {
+  { cwd = '/Users/me/repos/my-app', model = 'claude-opus-5-5', turns = 12, git = () => MAIN }: {
     cwd?: string
     model?: string
     turns?: number
-    git?: (argv: string[]) => Git
+    git?: (argv: string[]) => Repo
   } = {},
 ) => {
   on('session.usage', () => ({ value: usage }))
@@ -66,14 +81,13 @@ const answerUsage = (
   on('session.model', () => ({ value: model }))
   on('session.turns', () => ({ value: turns }))
   on('process.run', (_: any, e: any) => {
-    const answer = git([...e.argv])
-    const out = answer === null ? '' : e.argv.includes('status') ? answer.status : answer.dirs
+    const { exitCode, stdout } = gitAnswer(git([...e.argv]), [...e.argv])
 
     return {
       value: {
-        exitCode: answer === null ? 128 : 0,
-        stdout: out,
-        stderr: answer === null ? 'fatal: not a git repository' : '',
+        exitCode,
+        stdout,
+        stderr: exitCode === 0 ? '' : 'fatal',
         isStdoutTruncated: false,
         isStderrTruncated: false,
       },
@@ -462,7 +476,7 @@ test('the top row shows the workspace and, in the corner, price, prompts and mod
 
 test('a worktree is marked with a tree', async ($, on) => {
   mock.clock(on, { now: NOW })
-  answerUsage(on, FULL, { cwd: '/repo/wt', git: () => ({ status: GIT_STATUS, dirs: GIT_DIRS_WORKTREE }) })
+  answerUsage(on, FULL, { cwd: '/repo/wt', git: () => ({ ...MAIN, dirs: GIT_DIRS_WORKTREE }) })
   await startSession($)
 
   const ui = await $.ui.mount(band('desktop'))
@@ -533,12 +547,12 @@ test('the corner group sits on the right and wraps under the workspace only when
 
 test('a Bash tool call refreshes the branch', async ($, on) => {
   mock.clock(on, { now: NOW })
-  let status = GIT_STATUS
-  answerUsage(on, FULL, { git: () => ({ status, dirs: GIT_DIRS_MAIN }) })
+  let repo: Repo = MAIN
+  answerUsage(on, FULL, { git: () => repo })
   on('tool.call', () => ({ result: {} }))
   await startSession($)
 
-  status = '# branch.oid abc\n# branch.head feat/band\n'
+  repo = { branch: 'feat/band', upstream: null, counts: '', dirs: GIT_DIRS_MAIN }
   await $.tool.call({ tool: 'Bash', command: 'git switch -c feat/band' })
 
   const ui = await $.ui.mount(band('desktop'))
@@ -548,11 +562,11 @@ test('a Bash tool call refreshes the branch', async ($, on) => {
 
 test('the 30-second tick refreshes the branch', async ($, on) => {
   const clock = mock.clock(on, { now: NOW })
-  let status = GIT_STATUS
-  answerUsage(on, FULL, { git: () => ({ status, dirs: GIT_DIRS_MAIN }) })
+  let repo: Repo = MAIN
+  answerUsage(on, FULL, { git: () => repo })
   await startSession($)
 
-  status = '# branch.oid abc\n# branch.head main\n# branch.upstream origin/main\n# branch.ab +0 -0\n'
+  repo = { ...MAIN, counts: '0\t0\n' }
   await clock.advance(30_000)
 
   const ui = await $.ui.mount(band('desktop'))
@@ -573,16 +587,31 @@ test('the dot dividers have four spaces on each side', async ($, on) => {
   await ui.unmount()
 })
 
-test('git is read with fsmonitor off, so a repo config cannot make it run a program', async ($, on) => {
+test('git is only asked about its records, never the working tree, so repo config cannot run a program', async ($, on) => {
   mock.clock(on, { now: NOW })
   const argvs: string[][] = []
-  answerUsage(on, FULL, { git: argv => (argvs.push(argv), null) })
+  answerUsage(on, FULL, { git: argv => (argvs.push(argv), MAIN) })
   await startSession($)
 
   const ui = await $.ui.mount(band('desktop'))
+  expect(await allText(ui)).toContain('🌿 main ↑2 ↓1')
   await ui.unmount()
+
+  // `status`, `diff` and friends refresh the index, which can run a repo's fsmonitor or clean filters.
+  const ALLOWED = ['symbolic-ref', 'rev-parse', 'rev-list']
   expect(argvs.length).toBeGreaterThan(0)
   for (const argv of argvs) {
-    expect(argv.slice(0, 3)).toEqual(['git', '-c', 'core.fsmonitor=false'])
+    expect(argv.slice(0, 4)).toEqual(['git', '-c', 'core.fsmonitor=false', '--no-optional-locks'])
+    expect(ALLOWED).toContain(argv[4])
   }
+})
+
+test('a detached HEAD reads detached', async ($, on) => {
+  mock.clock(on, { now: NOW })
+  answerUsage(on, FULL, { git: () => ({ branch: null, upstream: null, counts: '', dirs: GIT_DIRS_MAIN }) })
+  await startSession($)
+
+  const ui = await $.ui.mount(band('desktop'))
+  expect(await allText(ui)).toContain('🌿 detached (not pushed)')
+  await ui.unmount()
 })
