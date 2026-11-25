@@ -81,8 +81,9 @@ always visible, so they can decide on the spot whether to start a big task, comp
 - Layout rule: every group of pieces that must sit on one line is an explicit `flexDirection="row"`
   Box. The desktop app stacks loose siblings (a fragment) vertically.
 - Colour by level: blue below 75 %, yellow from 75 %, red from 90 % — applied to the number and its
-  bar. These are the theme's own `suggestion` (blue) / `warning` / `error` colours, so they follow the person's
-  theme.
+  bar. Yellow and red are the theme's own `warning` / `error`, so they follow the person's theme. Blue
+  is a fixed `#5B9DF5` (`CALM_BLUE`), not the theme's `suggestion`: the desktop app greys that key out
+  while its window is unfocused, and the band must read the same focused or not.
 - Cache countdown: blue with more than 20 minutes left, yellow from 20, red from 10; `🧊 Cold` is grey
   (the theme's `inactive`), so an expired cache never looks like a calm blue reading.
 - Labels are dim so the numbers stand out.

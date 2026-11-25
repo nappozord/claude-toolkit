@@ -2,8 +2,14 @@ import type { TurnUsage } from 'claude-code'
 
 import type { CacheTtl, GitBranch, Tally } from '../types'
 
-/** Theme keys for a level: blue (the theme's `suggestion`), yellow, red. */
-export type Level = 'suggestion' | 'warning' | 'error'
+/**
+ * The calm level's fixed blue. Not a theme key: the desktop app greys the theme's `suggestion` blue
+ * out while its window is unfocused, and the band should read the same either way.
+ */
+export const CALM_BLUE = '#5B9DF5'
+
+/** A level's colour: the fixed calm blue, then the theme's `warning` (yellow) and `error` (red). */
+export type Level = typeof CALM_BLUE | 'warning' | 'error'
 
 const CELLS = 10
 const TTL_MS: Record<CacheTtl, number> = { '5m': 300_000, '1h': 3_600_000 }
@@ -11,11 +17,11 @@ const DAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']
 
 /** A percentage's level: blue under 75, yellow from 75, red from 90. */
 export const level = (percent: number): Level =>
-  percent >= 90 ? 'error' : percent >= 75 ? 'warning' : 'suggestion'
+  percent >= 90 ? 'error' : percent >= 75 ? 'warning' : CALM_BLUE
 
 /** The cache countdown's level: blue above 20 minutes left, yellow from 20, red from 10. */
 export const cacheLevel = (msLeft: number): Level =>
-  msLeft <= 600_000 ? 'error' : msLeft <= 1_200_000 ? 'warning' : 'suggestion'
+  msLeft <= 600_000 ? 'error' : msLeft <= 1_200_000 ? 'warning' : CALM_BLUE
 
 /** How many of a bar's 10 cells a percentage fills, one per 10 %. */
 export const filledCells = (percent: number): number =>

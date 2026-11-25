@@ -1,6 +1,6 @@
 {
   "name": "usage-band",
-  "version": "0.1.2",
+  "version": "0.1.3",
   "author": { "name": "nappozord" },
   "description": "A band above the prompt: folder and branch, prompts and cost, context window, 5-hour and weekly limits, prompt-cache countdown, session time and tokens.",
   "types": "./types/index.d.ts"

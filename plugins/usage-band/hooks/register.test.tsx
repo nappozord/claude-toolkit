@@ -146,7 +146,7 @@ test('percentages are bold and take their level colour', async ($, on) => {
   for (const surface of SURFACES) {
     const ui = await $.ui.mount(band(surface))
 
-    for (const [re, color] of [[/^42%$/, 'suggestion'], [/^80%$/, 'warning'], [/^95%$/, 'error']] as const) {
+    for (const [re, color] of [[/^42%$/, '#5B9DF5'], [/^80%$/, 'warning'], [/^95%$/, 'error']] as const) {
       const found = await ui.find({ type: 'Text', text: re })
       expect(found?.props.bold).toBe(true)
       expect(found?.props.color).toBe(color)
@@ -331,9 +331,9 @@ test('each reading sits on one line with a bar of equal segments', async ($, on)
     // Bars in drawing order: context, 5-hour, week; each a filled run then an empty run.
     const runs = await ui.findAll({ type: 'Text', text: /^▰+$/ })
     expect(runs.map(r => [r.text.length, r.props.color])).toEqual([
-      [4, 'suggestion'], [6, 'subtle'],
-      [6, 'suggestion'], [4, 'subtle'],
-      [3, 'suggestion'], [7, 'subtle'],
+      [4, '#5B9DF5'], [6, 'subtle'],
+      [6, '#5B9DF5'], [4, 'subtle'],
+      [3, '#5B9DF5'], [7, 'subtle'],
     ])
     for (const name of ['context', 'five', 'week']) {
       expect((await ui.find({ type: 'Box', key: `${name}-reading` }))?.props.flexDirection).toBe('row')
@@ -367,7 +367,7 @@ test('the cache countdown turns yellow at 20 minutes and red at 10', async ($, o
     return color
   }
 
-  expect(await colourOf('1h00m')).toBe('suggestion')
+  expect(await colourOf('1h00m')).toBe('#5B9DF5')
   await clock.advance(40 * 60_000)
   expect(await colourOf('20m')).toBe('warning')
   await clock.advance(10 * 60_000)

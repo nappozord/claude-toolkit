@@ -8,7 +8,7 @@ const usage = (extra: object) => ({
 })
 
 test('level is blue under 75, yellow from 75, red from 90', async () => {
-  expect(level(74.9)).toBe('suggestion')
+  expect(level(74.9)).toBe('#5B9DF5')
   expect(level(75)).toBe('warning')
   expect(level(89.9)).toBe('warning')
   expect(level(90)).toBe('error')
@@ -16,7 +16,7 @@ test('level is blue under 75, yellow from 75, red from 90', async () => {
 })
 
 test('cacheLevel is blue above 20 minutes left, yellow from 20, red from 10', async () => {
-  expect(cacheLevel(20 * 60_000 + 1)).toBe('suggestion')
+  expect(cacheLevel(20 * 60_000 + 1)).toBe('#5B9DF5')
   expect(cacheLevel(20 * 60_000)).toBe('warning')
   expect(cacheLevel(10 * 60_000 + 1)).toBe('warning')
   expect(cacheLevel(10 * 60_000)).toBe('error')
