@@ -163,3 +163,9 @@ export const rememberedLimits = (limits: readonly RememberedLimit[], now: number
 
     return !Number.isNaN(at) && at <= now ? { kind: l.kind, percentUsed: 0 } : l
   })
+
+/**
+ * The folder a path ends in: "/Users/me/my-app" and "C:\Users\me\my-app" both give "my-app". Splits on
+ * either separator, since a session on Windows reports backslash paths. A root ("/", "C:\") is kept as is.
+ */
+export const folderName = (path: string): string => path.split(/[\\/]+/).filter(Boolean).pop() ?? path

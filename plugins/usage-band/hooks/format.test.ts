@@ -1,6 +1,6 @@
 import { expect, test } from 'claude-code/testing'
 
-import { asSavedSession, asStoredLimits, branchLabel, isExpired, rememberedLimits, cacheLevel, filledCells, parseCounts, price, cacheLeft, cacheTtlOf, compactTokens, duration, level, resetMoment } from './format'
+import { asSavedSession, folderName, asStoredLimits, branchLabel, isExpired, rememberedLimits, cacheLevel, filledCells, parseCounts, price, cacheLeft, cacheTtlOf, compactTokens, duration, level, resetMoment } from './format'
 
 const usage = (extra: object) => ({
   input_tokens: 0, output_tokens: 0, cache_read_input_tokens: 0, cache_creation_input_tokens: 0,
@@ -131,4 +131,15 @@ test('rememberedLimits zeroes a window whose reset has passed', async () => {
     { kind: 'five_hour', percentUsed: 0 },
     { kind: 'seven_day', percentUsed: 28, resetsAt: later },
   ])
+})
+
+test('folderName takes the last folder of a path, with either separator', async () => {
+  expect(folderName('/Users/me/repos/my-app')).toBe('my-app')
+  expect(folderName('/Users/me/repos/my-app/')).toBe('my-app')
+  expect(folderName('C:\\Users\\me\\repos\\my-app')).toBe('my-app')
+  expect(folderName('C:\\Users\\me\\repos\\my-app\\')).toBe('my-app')
+  expect(folderName('\\\\server\\share\\my-app')).toBe('my-app')
+  expect(folderName('C:/Users/me/repos/my-app')).toBe('my-app')
+  expect(folderName('C:\\')).toBe('C:')
+  expect(folderName('/')).toBe('/')
 })

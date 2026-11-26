@@ -921,3 +921,15 @@ test('an in-process resume restores the resumed session', async ($, on) => {
   expect(await allText(ui)).toContain('Tokens 77k')
   await ui.unmount()
 })
+
+test('on Windows the folder is the last folder of the path, not the whole path', async ($, on) => {
+  mock.clock(on, { now: NOW })
+  answerUsage(on, FULL, { cwd: 'C:\\Users\\me\\repos\\my-app' })
+  await startSession($)
+
+  const ui = await $.ui.mount(band('desktop'))
+  const words = await allText(ui)
+  expect(words).toContain('📁 my-app')
+  expect(words).not.toContain('C:\\')
+  await ui.unmount()
+})

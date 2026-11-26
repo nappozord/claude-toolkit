@@ -6,6 +6,7 @@ import {
   asSavedSession,
   asStoredLimits,
   branchLabel,
+  folderName,
   cacheLeft,
   cacheLevel,
   cacheTtlOf,
@@ -84,7 +85,7 @@ const GIT_TIMEOUT_MS = 5_000
 /** Reads the folder and git state into `workspace`; drawing only ever reads that. */
 const refreshWorkspace = async ($: EngineInterface): Promise<void> => {
   const cwd = await $.session.cwd()
-  const folder = cwd.split('/').filter(Boolean).pop() ?? cwd
+  const folder = folderName(cwd)
   // The band opens git in whatever folder a session starts in, so it asks git only about its records
   // (HEAD, refs, commits) and never runs `status`, `diff` or anything else that refreshes the index:
   // those can run programs a repository's own config names (fsmonitor, clean filters). fsmonitor is

@@ -21,7 +21,7 @@ always visible, so they can decide on the spot whether to start a big task, comp
 ```
 
 - **Top row — workspace (left) and session (right corner):**
-  - **📁 folder:** the session's working directory's name; `🌳` after it when the session runs in a git
+  - **📁 folder:** the session's working directory's name (the last folder of its path, split on `/` or `\` so Windows paths work too); `🌳` after it when the session runs in a git
     worktree (its git dir differs from the common git dir), so it is clear it is not the main checkout.
   - **🌿 branch:** the current branch (`detached` on a detached HEAD), then `↑N ↓M` (commits not pushed /
     commits on the remote not pulled) when either is non-zero, `✓` when in sync, `(not pushed)` when the
