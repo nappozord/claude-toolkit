@@ -6,9 +6,9 @@ desktop app and the terminal.
 ```
 📁 my-app  │  🌿 main ↑2 ↓0                        💬 Prompts 12  │  💵 Cost $1.84
 ──────────────────────────────────────────────────────────────────────────────────────────────
-🧠 Context 42% ▰▰▰▰▱▱▱▱▱▱  420k / 1M
-⏳ 5-hour 63% ▰▰▰▰▰▰▱▱▱▱  ↻ 1h52m    │    📅 Week 28% ▰▰▰▱▱▱▱▱▱▱  ↻ Thu 16:00
-🔥 Cache 38m    │    ⏱️ Session 2h07m    │    🪙 Tokens 184k
+🧠 Context  42% ▰▰▰▰▱▱▱▱▱▱  420k / 1M                       🔥 Cache    38m
+⏳ 5-hour   63% ▰▰▰▰▰▰▱▱▱▱  ↻ 1h52m                         ⏱️ Session  2h07m
+📅 Week     28% ▰▰▰▱▱▱▱▱▱▱  ↻ Thu 16:00                     🪙 Tokens   184k
 ```
 
 | Reading | What it means |
@@ -35,7 +35,9 @@ session's token count and cache timer, for 30 days. It stays on your machine and
 plugin.
 
 Prompts and cost sit in the top-right corner and wrap under the folder and branch only when the
-window is too narrow for both; the 5-hour and weekly readings stack on two rows under 80 columns. The band steps aside
+window is too narrow for both. Below it the three bars sit one under the other with their labels,
+percentages and bars in aligned columns, and the cache, session time and tokens down the right side;
+under 64 columns those three move to a row of their own. The band steps aside
 while a survey uses that spot, and you can collapse it with the `[-]` next to it.
 
 It redraws whenever Claude Code reports new usage figures and every 30 seconds. Git is read when the

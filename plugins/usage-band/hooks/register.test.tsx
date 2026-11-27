@@ -314,14 +314,69 @@ test('a weekly reset already past reads now', async ($, on) => {
   await ui.unmount()
 })
 
-test('the limits stack on two rows when the band is narrow', async ($, on) => {
+/** The element keyed `key` in a drawn tree, searched depth first. */
+const byKey = (node: any, key: string): any => {
+  if (node?.props?.key === key) {
+    return node
+  }
+  for (const child of node?.children ?? []) {
+    const hit = byKey(child, key)
+    if (hit) {
+      return hit
+    }
+  }
+  return undefined
+}
+
+/** Every Box under `node` (itself included) that has a fixed width, in drawing order. */
+const sizedBoxes = (node: any): any[] => [
+  ...(node?.type === 'Box' && node.props.width !== undefined ? [node] : []),
+  ...(node?.children ?? []).flatMap(sizedBoxes),
+]
+
+test('each bar row carries a session reading on its right; narrow, those get a row of their own', async ($, on) => {
   mock.clock(on, { now: NOW })
   answerUsage(on, FULL)
 
-  for (const [bodyColumns, direction] of [[120, 'row'], [50, 'column']] as const) {
-    const target = band('terminal')
-    const ui = await $.ui.mount({ ...target, props: { ...target.props, bodyColumns } })
-    expect((await ui.find({ type: 'Box', key: 'limits' }))?.props.flexDirection).toBe(direction)
+  for (const surface of SURFACES) {
+    const wide = await $.ui.mount(band(surface))
+    const tree = await wide.drawn()
+    for (const [i, bar, reading] of [[0, 'context', 'cache'], [1, 'five', 'session'], [2, 'week', 'tokens']] as const) {
+      const row = byKey(tree, `usage-row-${i}`)
+      expect(row?.props.flexDirection).toBe('row')
+      expect(row?.props.justifyContent).toBe('space-between')
+      expect(byKey(row, `${bar}-reading`)).not.toBe(undefined)
+      expect(byKey(row, `${reading}-reading`)).not.toBe(undefined)
+    }
+    expect(byKey(tree, 'session-row')).toBe(undefined)
+    await wide.unmount()
+
+    const target = band(surface)
+    const narrow = await $.ui.mount({ ...target, props: { ...target.props, bodyColumns: 50 } })
+    const narrowTree = await narrow.drawn()
+    expect(byKey(narrowTree, 'usage-row-0')).toBe(undefined)
+    expect(byKey(narrowTree, 'session-row')?.props.flexDirection).toBe('row')
+    expect(await allText(narrow)).toContain('Cache —    │    ⏱️ Session')
+    await narrow.unmount()
+  }
+})
+
+test('labels, percentages and bars line up in columns across the three rows', async ($, on) => {
+  mock.clock(on, { now: NOW })
+  // The 5-hour window has no reading: its row still keeps every column in place.
+  answerUsage(on, { ...FULL, rateLimits: FULL.rateLimits.filter(r => r.kind !== 'five_hour') })
+
+  for (const surface of SURFACES) {
+    const ui = await $.ui.mount(band(surface))
+    const tree = await ui.drawn()
+    for (const name of ['context', 'five', 'week']) {
+      const cells = sizedBoxes(byKey(tree, `${name}-reading`))
+      expect(cells.map(c => [c.props.width, c.props.justifyContent])).toEqual([[11, 'flex-start'], [4, 'flex-end']])
+    }
+    for (const name of ['cache', 'session', 'tokens']) {
+      expect(sizedBoxes(byKey(tree, `${name}-reading`)).map(c => c.props.width)).toEqual([11])
+    }
+    expect(await allText(ui)).toMatch(/⏳ 5-hour — ▰{10}/)
     await ui.unmount()
   }
 })
@@ -678,7 +733,7 @@ test('the 30-second tick refreshes the branch', async ($, on) => {
   await ui.unmount()
 })
 
-test('dividers are vertical rules: tight in the top row, wide in the usage rows', async ($, on) => {
+test('dividers are vertical rules in the top row; the usage rows are columns, not dividers', async ($, on) => {
   mock.clock(on, { now: NOW })
   answerUsage(on, { ...FULL, cost: { usd: 1.8449 } })
   await startSession($)
@@ -688,8 +743,7 @@ test('dividers are vertical rules: tight in the top row, wide in the usage rows'
     const words = await allText(ui)
     expect(words).toContain('📁 my-app  │  🌿 main ↑2 ↓1')
     expect(words).toContain('💬 Prompts 12  │  💵 Cost $1.84')
-    expect(words).toContain('↻ 1h52m    │    📅 Week')
-    expect(words).toContain('Cache —    │    ⏱️ Session')
+    expect(words).not.toContain('↻ 1h52m    │')
     expect(words).not.toContain('·')
     await ui.unmount()
   }
@@ -699,6 +753,7 @@ test('on desktop a divider is a thin Svg line; in the terminal the │ character
   mock.clock(on, { now: NOW })
   answerUsage(on, FULL)
 
+  await startSession($)
   const desk = await $.ui.mount(band('desktop'))
   const rules = (await desk.findAll({ type: 'Svg' })).filter((s: any) => s.props.alt === '│')
   expect(rules.length).toBeGreaterThan(0)
@@ -726,7 +781,7 @@ test('the context bar runs straight into its token count, with no divider', asyn
   answerUsage(on, FULL)
 
   const ui = await $.ui.mount(band('desktop'))
-  expect(await allText(ui)).toMatch(/🧠 Context 42%▰{10}  420k \/ 1M/)
+  expect(await allText(ui)).toMatch(/🧠 Context 42% ▰{10}  420k \/ 1M/)
   await ui.unmount()
 })
 
@@ -736,8 +791,8 @@ test('a reset time sits two spaces after its bar', async ($, on) => {
 
   const ui = await $.ui.mount(band('desktop'))
   const words = await allText(ui)
-  expect(words).toMatch(/63%▰{10}  ↻ 1h52m/)
-  expect(words).toMatch(/28%▰{10}  ↻ Thu 09:00/)
+  expect(words).toMatch(/63% ▰{10}  ↻ 1h52m/)
+  expect(words).toMatch(/28% ▰{10}  ↻ Thu 09:00/)
   await ui.unmount()
 })
 

@@ -15,9 +15,9 @@ always visible, so they can decide on the spot whether to start a big task, comp
 ```
 📁 my-app  │  🌿 main ↑2 ↓0                        💬 Prompts 12  │  💵 Cost $1.84
 ──────────────────────────────────────────────────────────────────────────────────────────────
-🧠 Context 42% ▰▰▰▰▱▱▱▱▱▱  420k / 1M
-⏳ 5-hour 63% ▰▰▰▰▰▰▱▱▱▱  ↻ 1h52m    │    📅 Week 28% ▰▰▰▱▱▱▱▱▱▱  ↻ Thu 09:00
-🔥 Cache 38m    │    ⏱️ Session 2h07m    │    🪙 Tokens 184k
+🧠 Context  42% ▰▰▰▰▱▱▱▱▱▱  420k / 1M                       🔥 Cache    38m
+⏳ 5-hour   63% ▰▰▰▰▰▰▱▱▱▱  ↻ 1h52m                         ⏱️ Session  2h07m
+📅 Week     28% ▰▰▰▱▱▱▱▱▱▱  ↻ Thu 09:00                     🪙 Tokens   184k
 ```
 
 - **Top row — workspace (left) and session (right corner):**
@@ -44,25 +44,36 @@ always visible, so they can decide on the spot whether to start a big task, comp
     second line), Text `wrap="clip"` (refused on desktop), and a long `─` line in a one-row Box with
     `overflow="hidden"` (it sat at the bottom of its row and stretched the band past the window,
     cutting off the right corner).
-- **Row 1 — context:** percentage of the context window in use, a progress bar, and the tokens in the
+- **Usage rows — a grid of three rows.** Each row has a bar reading on the left and a session reading
+  pinned to the right edge (`space-between`): context with the cache, 5-hour with the session time, week
+  with the tokens. The three bars sit one under the other, and every column lines up across the rows
+  because each is a fixed-width cell (widths in cells): icon and label (11, left-aligned), percentage
+  (4, right-aligned, so `5%` and `100%` end in the same place), one space, the 10-cell bar, two spaces,
+  the detail. On the right, each session reading's icon and label sit in an 11-cell cell, so the values
+  start in one column; the whole reading is 18 cells wide. A bar row with no reading yet shows `—` in the
+  percentage cell and an all-empty bar, so nothing shifts. There are no dividers in these rows: the
+  columns do that job. Before (≤ 0.4.1) the bars were spread over three rows of different shape
+  (context alone, 5-hour and week side by side, the session readings on their own row) and did not line up.
+  When the band is narrower than 64 cells a bar row and a session reading no longer fit side by side:
+  the three session readings move to a fourth row of their own, split by vertical rules.
+- **Context (row 1, left):** percentage of the context window in use, a progress bar, and the tokens in the
   window over the window size (`420k / 1M`).
-- **Row 2 — rate limits:** the 5-hour window's percentage, progress bar and time until it resets
+- **5-hour and week (rows 2 and 3, left):** the 5-hour window's percentage, progress bar and time until it resets
   (relative, e.g. `1h52m`); the weekly window's percentage, progress bar and reset moment (weekday and
   local time on the 24-hour clock, e.g. `Thu 16:00`). A reset already past reads `↻ now` (the figures are only as fresh as
-  the last reply). When the band is narrower than 80 cells the two windows stack on two rows, so the
-  band is four rows tall instead of wrapping mid-bar.
+  the last reply).
   The engine learns the windows only from API response headers, so a new or resumed session has none
   until its first reply. Until then the band shows the **last reading from any session** (the windows
   are account-wide), saved in the plugin's store on every measurement with window figures; a window
   whose reset has passed since then reads `0%` with no reset time, since it has started over.
-- **Row 3 — session** (drawn in the order cache · session time · tokens):
+- **Session readings (right column, top to bottom: cache · session time · tokens):
   - **cache:** countdown until the prompt cache expires, counted from when the last main-thread request
     was answered (the first chunk of the reply, so a retry backoff does not count) plus its cache lifetime (5 min or 1 h, read from the request's cache write; a request that
     only read the cache keeps the previous lifetime; unknown → 5 min). Subagent requests never move it
     (their cache is their own). Shows `🧊 Cold` once it lapses, `🔥 Cache —` before any request.
   - **session tokens:** input + output + cache-write tokens of every model step (main thread and subagents),
     *excluding cache reads* (they re-count the whole conversation on every request and would inflate the
-    number into the millions). Counts survive compaction, unlike row 1. The engine has no ready-made
+    number into the millions). Counts survive compaction, unlike the context reading. The engine has no ready-made
     session total, so the band adds each request up itself (kept in session state, so hot reloads keep
     it) and **saves it per session id** in the plugin's store after every reply, with the cache timer.
     Resuming a session, in a new process or in-process, restores both (the cache shows its remaining
@@ -108,9 +119,9 @@ always visible, so they can decide on the spot whether to start a big task, comp
   Before: colour emoji (busier, uneven against plain text symbols like `◐`/`❄`), then grey outlines.
   The `↻` before a reset time is a value marker, not a label icon, and stays a plain symbol.
 - Labels are capitalised words, each after its icon: `Context`, `5-hour`, `Week`, `Cache`, `Session`, `Tokens`, `Prompts`, `Cost` (dim, so values stand
-  out); readings in a row are split by a **vertical rule**: four spaces each side; the top row is denser, two
-  spaces each side. On graphical surfaces the rule is a thin Svg line (1 px wide, 16 px tall, dim grey
-  `#5A5A5E`, `#B4B2A9` in light mode); in the terminal it is the `│` character (it was a `·` dot before). A bar is followed by two spaces, then what belongs to it: the
+  out); readings side by side in the top row are split by a **vertical rule** with two spaces each side
+  (the narrow fourth session row uses four). The usage rows have none: they are aligned columns. On graphical surfaces the rule is a thin Svg line (1 px wide, 16 px tall, dim grey
+  `#5A5A5E`, `#B4B2A9` in light mode); in the terminal it is the `│` character (it was a `·` dot before). A percentage is followed by one space and its bar; a bar by two spaces, then what belongs to it: the
   `↻` reset time, or on the context row the token count directly (no divider there, since the bar and
   `420k / 1M` are one reading).
 - Layout rule: every group of pieces that must sit on one line is an explicit `flexDirection="row"`

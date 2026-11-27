@@ -1,5 +1,5 @@
 import { atom, read, update } from 'claude-code'
-import type { EngineInterface, Register, SessionRateLimit } from 'claude-code'
+import type { EngineInterface, Register, RenderChildren, SessionRateLimit } from 'claude-code'
 
 import type { StoredLimits, Tally, Workspace } from '../types'
 import {
@@ -25,9 +25,10 @@ import { DIVIDER_PX, ICON_PX, dividerSvg, iconSvg, type IconColour, type IconNam
 /**
  * usage-band: a band above the prompt.
  *   top. workspace (folder, worktree mark, branch and its sync) | prompts, cost — then a divider
- *   1. context window: percent + bar, tokens in the window / window size
- *   2. rate limits: 5-hour percent + bar + time to reset, weekly percent + bar + reset moment
- *   3. session: prompt-cache countdown (main thread), session time, tokens sent and received (no cache reads)
+ *   then three rows in aligned columns — label | percent | bar | detail ······ session reading:
+ *   1. context window (tokens in the window / window size)    ······ prompt-cache countdown (main thread)
+ *   2. 5-hour limit (time to reset)                            ······ session time
+ *   3. weekly limit (reset moment)                             ······ tokens sent and received (no cache reads)
  * See DESIGN.md for the why.
  */
 
@@ -133,12 +134,20 @@ const refreshWorkspace = async ($: EngineInterface): Promise<void> => {
 const TICK_MS = 30_000
 const BAR_CELLS = 10
 const BAR_GLYPH = '▰'
-/** Below this many cells the 5-hour and weekly readings no longer fit one row: they stack. */
-const NARROW_COLUMNS = 80
+/** Below this many cells a bar row and a session reading no longer fit side by side: the session readings get their own row. */
+const NARROW_COLUMNS = 64
+/** Icon and label of a bar row ("🧠 Context "), so the percentages start in one column. */
+const LABEL_CELLS = 11
+/** The percentage ("100%"), right-aligned, so the bars start in one column. */
+const PERCENT_CELLS = 4
+/** Icon and label of a session reading ("⏱️ Session "), so their values start in one column. */
+const SESSION_LABEL_CELLS = 11
+/** A whole session reading: label cell and the longest value ("1h52m"). */
+const SESSION_CELLS = 18
 const SEP_PAD = '    '
 /** The top row (workspace, prompts, cost) is denser: a tighter divider. */
 const HEADER_PAD = '  '
-/** Between a bar and what follows it (a reset time, the context token count). */
+/** Between a bar and its detail (a reset time, the context token count). */
 const AFTER_BAR = '  '
 
 export const register: Register = on => {
@@ -301,24 +310,39 @@ export const register: Register = on => {
     const Gap = () => <Rule pad={SEP_PAD} />
     const HeaderGap = () => <Rule pad={HEADER_PAD} />
 
-    // One reading: the bold percentage, then a 10-cell bar. Filled and empty cells are the same glyph
-    // (so they are the same height), the empty ones in the theme's subtle colour.
-    // Everything sits in an explicit row Box: the desktop app stacks loose siblings.
-    const Percent = ({ name, value }: { name: string; value: number | undefined }) => {
-      if (value === undefined) {
-        return <Text>—</Text>
-      }
+    // A fixed-width cell, so the same column lines up on every row whatever the label or value.
+    const Cell = ({ width, right, children }: { width: number; right?: boolean; children: RenderChildren }) => (
+      <Box flexDirection="row" alignItems="center" width={width} justifyContent={right ? 'flex-end' : 'flex-start'}>
+        {children}
+      </Box>
+    )
 
-      const filled = filledCells(value)
-      const color = level(value)
+    // One bar row: icon and label | the bold percentage, right-aligned | a 10-cell bar | a detail.
+    // Filled and empty cells are the same glyph (so they are the same height), the empty ones in the
+    // theme's subtle colour; with no reading yet, "—" and an all-empty bar keep the columns in place.
+    // Everything sits in an explicit row Box: the desktop app stacks loose siblings.
+    const BarRow = ({ name, icon, emoji, label, value, detail }: {
+      name: string; icon: IconName; emoji: string; label: string; value: number | undefined; detail: string | null
+    }) => {
+      const filled = value === undefined ? 0 : filledCells(value)
+      const color = value === undefined ? 'subtle' : level(value)
 
       return (
-        <Box key={`${name}-reading`} flexDirection="row" alignItems="center" columnGap={1}>
-          <Text bold color={color}>{`${Math.round(value)}%`}</Text>
+        <Box key={`${name}-reading`} flexDirection="row" alignItems="center">
+          <Cell width={LABEL_CELLS}>
+            <Icon name={icon} emoji={emoji} />
+            <Label>{`${label} `}</Label>
+          </Cell>
+          <Cell width={PERCENT_CELLS} right>
+            {value === undefined ? <Text>—</Text> : <Text bold color={color}>{`${Math.round(value)}%`}</Text>}
+          </Cell>
+          <Text> </Text>
           <Box flexDirection="row">
             {filled > 0 ? <Text color={color}>{BAR_GLYPH.repeat(filled)}</Text> : null}
             {filled < BAR_CELLS ? <Text color="subtle">{BAR_GLYPH.repeat(BAR_CELLS - filled)}</Text> : null}
           </Box>
+          {detail === null ? null : <Text>{AFTER_BAR}</Text>}
+          {detail === null ? null : name === 'context' ? <Text>{detail}</Text> : <Text dimColor>{detail}</Text>}
         </Box>
       )
     }
@@ -329,26 +353,53 @@ export const register: Register = on => {
     const untilReset = (iso: string | undefined) =>
       iso === undefined || Number.isNaN(Date.parse(iso)) ? '—' : duration(Date.parse(iso) - now)
 
+    // The session readings: icon and label in a fixed cell, then the value, so they line up as a column.
+    const SessionReading = ({ name, icon, emoji, label, children }: {
+      name: string; icon: IconName; emoji: string; label: string; children: RenderChildren
+    }) => (
+      <Box key={`${name}-reading`} flexDirection="row" alignItems="center">
+        <Cell width={SESSION_LABEL_CELLS}>
+          <Icon name={icon} emoji={emoji} />
+          <Label>{`${label} `}</Label>
+        </Cell>
+        {children}
+      </Box>
+    )
+
     const left = cacheLeft(t, now)
     const cache =
-      left === null ? (
-        <Box key="cache-reading" flexDirection="row">
-          <Icon name="cache" emoji="🔥" />
-          <Label>Cache </Label>
-          <Text>—</Text>
-        </Box>
-      ) : left > 0 ? (
-        <Box key="cache-reading" flexDirection="row">
-          <Icon name="cache" emoji="🔥" />
-          <Label>Cache </Label>
-          <Text bold color={cacheLevel(left)}>{duration(left)}</Text>
+      left !== null && left <= 0 ? (
+        <Box key="cache-reading" flexDirection="row" alignItems="center">
+          <Cell width={SESSION_LABEL_CELLS}>
+            <Icon name="cold" emoji="🧊" />
+            <Text color="inactive">Cold</Text>
+          </Cell>
         </Box>
       ) : (
-        <Box flexDirection="row" alignItems="center">
-          <Icon name="cold" emoji="🧊" />
-          <Text color="inactive">Cold</Text>
-        </Box>
+        <SessionReading name="cache" icon="cache" emoji="🔥" label="Cache">
+          {left === null ? <Text>—</Text> : <Text bold color={cacheLevel(left)}>{duration(left)}</Text>}
+        </SessionReading>
       )
+    const session = (
+      <SessionReading name="session" icon="session" emoji="⏱️" label="Session">
+        <Text>{duration(now - startedAt)}</Text>
+      </SessionReading>
+    )
+    const tokens = (
+      <SessionReading name="tokens" icon="tokens" emoji="🪙" label="Tokens">
+        <Text>{compactTokens(t.tokens)}</Text>
+      </SessionReading>
+    )
+
+    const bars = [
+      <BarRow key="context" name="context" icon="context" emoji="🧠" label="Context" value={context.percent}
+        detail={`${context.tokens === undefined ? '—' : compactTokens(context.tokens)} / ${compactTokens(context.window)}`} />,
+      <BarRow key="five" name="five" icon="fiveHour" emoji="⏳" label="5-hour" value={five?.percentUsed}
+        detail={five ? `↻ ${untilReset(five.resetsAt)}` : null} />,
+      <BarRow key="week" name="week" icon="week" emoji="📅" label="Week" value={week?.percentUsed}
+        detail={week ? `↻ ${resetMoment(week.resetsAt, now)}` : null} />,
+    ]
+    const sessionReadings = [cache, session, tokens]
 
     return (
       <Box flexDirection="column">
@@ -377,41 +428,31 @@ export const register: Register = on => {
         ) : (
           <Markdown text="---" dimColor />
         )}
-        <Box flexDirection="row" alignItems="center">
-          <Icon name="context" emoji="🧠" />
-          <Label>Context </Label>
-          <Percent name="context" value={context.percent} />
-          <Text>{AFTER_BAR}</Text>
-          <Text>{`${context.tokens === undefined ? '—' : compactTokens(context.tokens)} / ${compactTokens(context.window)}`}</Text>
-        </Box>
-        <Box key="limits" flexDirection={isNarrow ? 'column' : 'row'}>
-          <Box flexDirection="row" alignItems="center">
-            <Icon name="fiveHour" emoji="⏳" />
-            <Label>5-hour </Label>
-            <Percent name="five" value={five?.percentUsed} />
-            {five ? <Text>{AFTER_BAR}</Text> : null}
-            {five ? <Text dimColor>{`↻ ${untilReset(five.resetsAt)}`}</Text> : null}
+        {/* Each row: a bar reading left, a session reading pinned right. Narrow, the session readings
+            move to a fourth row of their own. */}
+        {isNarrow ? (
+          <Box key="usage" flexDirection="column">
+            {bars}
+            <Box key="session-row" flexDirection="row" alignItems="center">
+              {cache}
+              <Gap />
+              {session}
+              <Gap />
+              {tokens}
+            </Box>
           </Box>
-          {isNarrow ? null : <Gap />}
-          <Box flexDirection="row" alignItems="center">
-            <Icon name="week" emoji="📅" />
-            <Label>Week </Label>
-            <Percent name="week" value={week?.percentUsed} />
-            {week ? <Text>{AFTER_BAR}</Text> : null}
-            {week ? <Text dimColor>{`↻ ${resetMoment(week.resetsAt, now)}`}</Text> : null}
+        ) : (
+          <Box key="usage" flexDirection="column">
+            {bars.map((bar, i) => (
+              <Box key={`usage-row-${i}`} flexDirection="row" alignItems="center" justifyContent="space-between">
+                {bar}
+                <Box flexDirection="row" alignItems="center" width={SESSION_CELLS}>
+                  {sessionReadings[i]}
+                </Box>
+              </Box>
+            ))}
           </Box>
-        </Box>
-        <Box flexDirection="row" alignItems="center">
-          {cache}
-          <Gap />
-          <Icon name="session" emoji="⏱️" />
-          <Label>Session </Label>
-          <Text>{duration(now - startedAt)}</Text>
-          <Gap />
-          <Icon name="tokens" emoji="🪙" />
-          <Label>Tokens </Label>
-          <Text>{compactTokens(t.tokens)}</Text>
-        </Box>
+        )}
       </Box>
     )
   })
