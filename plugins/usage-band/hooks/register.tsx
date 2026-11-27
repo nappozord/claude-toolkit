@@ -136,14 +136,14 @@ const BAR_CELLS = 10
 const BAR_GLYPH = '▰'
 /** Below this many cells a bar row and a session reading no longer fit side by side: the session readings get their own row. */
 const NARROW_COLUMNS = 64
-/** Icon and label of a bar row ("🧠 Context "), so the percentages start in one column. */
-const LABEL_CELLS = 11
-/** The percentage ("100%"), right-aligned, so the bars start in one column. */
+/** Icon and label of a bar row ("🧠 Context", the longest), so the percentages start in one column. */
+const LABEL_CELLS = 10
+/** The percentage ("100%"), left-aligned one space after the label, so the bars start in one column. */
 const PERCENT_CELLS = 4
-/** Icon and label of a session reading ("⏱️ Session "), so their values start in one column. */
-const SESSION_LABEL_CELLS = 11
-/** A whole session reading: label cell and the longest value ("1h52m"). */
-const SESSION_CELLS = 18
+/** Icon and label of a session reading ("⏱️ Session", the longest), so their values start in one column. */
+const SESSION_LABEL_CELLS = 10
+/** A session reading's value ("1h52m", the usual longest), left-aligned: little room left after it. */
+const SESSION_VALUE_CELLS = 5
 const SEP_PAD = '    '
 /** The top row (workspace, prompts, cost) is denser: a tighter divider. */
 const HEADER_PAD = '  '
@@ -311,13 +311,13 @@ export const register: Register = on => {
     const HeaderGap = () => <Rule pad={HEADER_PAD} />
 
     // A fixed-width cell, so the same column lines up on every row whatever the label or value.
-    const Cell = ({ width, right, children }: { width: number; right?: boolean; children: RenderChildren }) => (
-      <Box flexDirection="row" alignItems="center" width={width} justifyContent={right ? 'flex-end' : 'flex-start'}>
+    const Cell = ({ width, children }: { width: number; children: RenderChildren }) => (
+      <Box flexDirection="row" alignItems="center" width={width} justifyContent="flex-start">
         {children}
       </Box>
     )
 
-    // One bar row: icon and label | the bold percentage, right-aligned | a 10-cell bar | a detail.
+    // One bar row: icon and label | one space | the bold percentage | a 10-cell bar | a detail.
     // Filled and empty cells are the same glyph (so they are the same height), the empty ones in the
     // theme's subtle colour; with no reading yet, "—" and an all-empty bar keep the columns in place.
     // Everything sits in an explicit row Box: the desktop app stacks loose siblings.
@@ -331,9 +331,10 @@ export const register: Register = on => {
         <Box key={`${name}-reading`} flexDirection="row" alignItems="center">
           <Cell width={LABEL_CELLS}>
             <Icon name={icon} emoji={emoji} />
-            <Label>{`${label} `}</Label>
+            <Label>{label}</Label>
           </Cell>
-          <Cell width={PERCENT_CELLS} right>
+          <Text> </Text>
+          <Cell width={PERCENT_CELLS}>
             {value === undefined ? <Text>—</Text> : <Text bold color={color}>{`${Math.round(value)}%`}</Text>}
           </Cell>
           <Text> </Text>
@@ -353,16 +354,18 @@ export const register: Register = on => {
     const untilReset = (iso: string | undefined) =>
       iso === undefined || Number.isNaN(Date.parse(iso)) ? '—' : duration(Date.parse(iso) - now)
 
-    // The session readings: icon and label in a fixed cell, then the value, so they line up as a column.
+    // The session readings: icon and label in a fixed cell, one space, then the value in a fixed cell,
+    // so they line up as a column and every reading is the same width.
     const SessionReading = ({ name, icon, emoji, label, children }: {
       name: string; icon: IconName; emoji: string; label: string; children: RenderChildren
     }) => (
       <Box key={`${name}-reading`} flexDirection="row" alignItems="center">
         <Cell width={SESSION_LABEL_CELLS}>
           <Icon name={icon} emoji={emoji} />
-          <Label>{`${label} `}</Label>
+          <Label>{label}</Label>
         </Cell>
-        {children}
+        <Text> </Text>
+        <Cell width={SESSION_VALUE_CELLS}>{children}</Cell>
       </Box>
     )
 
@@ -374,6 +377,8 @@ export const register: Register = on => {
             <Icon name="cold" emoji="🧊" />
             <Text color="inactive">Cold</Text>
           </Cell>
+          <Text> </Text>
+          <Cell width={SESSION_VALUE_CELLS}>{null}</Cell>
         </Box>
       ) : (
         <SessionReading name="cache" icon="cache" emoji="🔥" label="Cache">
@@ -446,9 +451,7 @@ export const register: Register = on => {
             {bars.map((bar, i) => (
               <Box key={`usage-row-${i}`} flexDirection="row" alignItems="center" justifyContent="space-between">
                 {bar}
-                <Box flexDirection="row" alignItems="center" width={SESSION_CELLS}>
-                  {sessionReadings[i]}
-                </Box>
+                {sessionReadings[i]}
               </Box>
             ))}
           </Box>

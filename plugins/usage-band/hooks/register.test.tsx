@@ -145,16 +145,16 @@ test('draws three rows from the usage figures', async ($, on) => {
     const ui = await $.ui.mount(band(surface))
     const text = async (re: RegExp) => (await ui.find({ type: 'Text', text: re }))?.text
 
-    expect(await text(/Context/)).toBe('Context ')
+    expect(await text(/Context/)).toBe('Context')
     expect(await text(/42%/)).toBe('42%')
     expect(await text(/\/ 1M/)).toBe('420k / 1M')
-    expect(await text(/5-hour/)).toBe('5-hour ')
+    expect(await text(/5-hour/)).toBe('5-hour')
     expect(await text(/63%/)).toBe('63%')
     expect(await text(/1h52m/)).toBe('↻ 1h52m')
-    expect(await text(/Week/)).toBe('Week ')
+    expect(await text(/Week/)).toBe('Week')
     expect(await text(/28%/)).toBe('28%')
     expect(await text(/09:00/)).toBe('↻ Thu 09:00')
-    expect(await text(/Session/)).toBe('Session ')
+    expect(await text(/Session/)).toBe('Session')
     expect(await text(/^2h07m$/)).toBe('2h07m')
     await ui.unmount()
   }
@@ -191,7 +191,7 @@ test('shows dashes before any reading', async ($, on) => {
     const text = async (re: RegExp) => (await ui.find({ type: 'Text', text: re }))?.text
 
     expect(await text(/\/ 1M/)).toBe('— / 1M')
-    expect(await text(/Cache/)).toBe('Cache ')
+    expect(await text(/Cache/)).toBe('Cache')
     expect(await allText(ui)).toContain('Tokens 0')
     expect(await text(/%/)).toBe(undefined)
     await ui.unmount()
@@ -208,7 +208,7 @@ test('a main-thread step warms the cache and counts tokens without cache reads',
     const text = async (re: RegExp) => (await ui.find({ type: 'Text', text: re }))?.text
 
     expect(await allText(ui)).toContain('Tokens 1k')
-    expect(await text(/Cache/)).toBe('Cache ')
+    expect(await text(/Cache/)).toBe('Cache')
     expect(await text(/^1h00m$/)).toBe('1h00m')
     await ui.unmount()
   }
@@ -221,7 +221,7 @@ test('a subagent step counts tokens but leaves the cache timer alone', async ($,
 
   const ui = await $.ui.mount(band('desktop'))
   expect(await allText(ui)).toContain('Tokens 1k')
-  expect((await ui.find({ type: 'Text', text: /Cache/ }))?.text).toBe('Cache ')
+  expect((await ui.find({ type: 'Text', text: /Cache/ }))?.text).toBe('Cache')
   expect(await ui.find({ type: 'Text', text: /^\d+[smhd]/ })).toBe(undefined)
   await ui.unmount()
 })
@@ -244,7 +244,7 @@ test('a step with no usage changes nothing', async ($, on) => {
 
   const ui = await $.ui.mount(band('desktop'))
   expect(await allText(ui)).toContain('Tokens 0')
-  expect((await ui.find({ type: 'Text', text: /Cache/ }))?.text).toBe('Cache ')
+  expect((await ui.find({ type: 'Text', text: /Cache/ }))?.text).toBe('Cache')
   expect(await ui.find({ type: 'Text', text: /^\d+[smhd]/ })).toBe(undefined)
   await ui.unmount()
 })
@@ -286,7 +286,7 @@ test('/clear starts the tally over', async ($, on) => {
 
   const ui = await $.ui.mount(band('desktop'))
   expect(await allText(ui)).toContain('Tokens 0')
-  expect((await ui.find({ type: 'Text', text: /Cache/ }))?.text).toBe('Cache ')
+  expect((await ui.find({ type: 'Text', text: /Cache/ }))?.text).toBe('Cache')
   expect(await ui.find({ type: 'Text', text: /^\d+[smhd]/ })).toBe(undefined)
   await ui.unmount()
 })
@@ -371,10 +371,10 @@ test('labels, percentages and bars line up in columns across the three rows', as
     const tree = await ui.drawn()
     for (const name of ['context', 'five', 'week']) {
       const cells = sizedBoxes(byKey(tree, `${name}-reading`))
-      expect(cells.map(c => [c.props.width, c.props.justifyContent])).toEqual([[11, 'flex-start'], [4, 'flex-end']])
+      expect(cells.map(c => [c.props.width, c.props.justifyContent])).toEqual([[10, 'flex-start'], [4, 'flex-start']])
     }
     for (const name of ['cache', 'session', 'tokens']) {
-      expect(sizedBoxes(byKey(tree, `${name}-reading`)).map(c => c.props.width)).toEqual([11])
+      expect(sizedBoxes(byKey(tree, `${name}-reading`)).map(c => c.props.width)).toEqual([10, 5])
     }
     expect(await allText(ui)).toMatch(/⏳ 5-hour — ▰{10}/)
     await ui.unmount()
@@ -432,7 +432,7 @@ test('the week reading has a calendar', async ($, on) => {
   for (const bodyColumns of [120, 50]) {
     const target = band('desktop')
     const ui = await $.ui.mount({ ...target, props: { ...target.props, bodyColumns } })
-    expect((await ui.find({ type: 'Text', text: /Week/ }))?.text).toBe('Week ')
+    expect((await ui.find({ type: 'Text', text: /Week/ }))?.text).toBe('Week')
     await ui.unmount()
   }
 })
@@ -598,14 +598,14 @@ test('a cold cache is grey, apart from the blue of a calm reading', async ($, on
   await ui.unmount()
 })
 
-test('row 3 reads Cache, Session, then Tokens with a dim label', async ($, on) => {
+test('the right column reads Cache, Session, then Tokens with a dim label', async ($, on) => {
   mock.clock(on, { now: NOW })
   answerUsage(on, FULL)
 
   for (const surface of SURFACES) {
     const ui = await $.ui.mount(band(surface))
     expect(await allText(ui)).toMatch(/Cache .*Session .*Tokens 0$/)
-    expect((await ui.find({ type: 'Text', text: /^Tokens $/ }))?.props.dimColor).toBe(true)
+    expect((await ui.find({ type: 'Text', text: /^Tokens$/ }))?.props.dimColor).toBe(true)
     await ui.unmount()
   }
 })

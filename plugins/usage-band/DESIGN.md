@@ -15,9 +15,9 @@ always visible, so they can decide on the spot whether to start a big task, comp
 ```
 📁 my-app  │  🌿 main ↑2 ↓0                        💬 Prompts 12  │  💵 Cost $1.84
 ──────────────────────────────────────────────────────────────────────────────────────────────
-🧠 Context  42% ▰▰▰▰▱▱▱▱▱▱  420k / 1M                       🔥 Cache    38m
-⏳ 5-hour   63% ▰▰▰▰▰▰▱▱▱▱  ↻ 1h52m                         ⏱️ Session  2h07m
-📅 Week     28% ▰▰▰▱▱▱▱▱▱▱  ↻ Thu 09:00                     🪙 Tokens   184k
+🧠 Context 42%  ▰▰▰▰▱▱▱▱▱▱  420k / 1M                      🔥 Cache   38m
+⏳ 5-hour  63%  ▰▰▰▰▰▰▱▱▱▱  ↻ 1h52m                        ⏱️ Session 2h07m
+📅 Week    28%  ▰▰▰▱▱▱▱▱▱▱  ↻ Thu 09:00                    🪙 Tokens  184k
 ```
 
 - **Top row — workspace (left) and session (right corner):**
@@ -47,10 +47,13 @@ always visible, so they can decide on the spot whether to start a big task, comp
 - **Usage rows — a grid of three rows.** Each row has a bar reading on the left and a session reading
   pinned to the right edge (`space-between`): context with the cache, 5-hour with the session time, week
   with the tokens. The three bars sit one under the other, and every column lines up across the rows
-  because each is a fixed-width cell (widths in cells): icon and label (11, left-aligned), percentage
-  (4, right-aligned, so `5%` and `100%` end in the same place), one space, the 10-cell bar, two spaces,
-  the detail. On the right, each session reading's icon and label sit in an 11-cell cell, so the values
-  start in one column; the whole reading is 18 cells wide. A bar row with no reading yet shows `—` in the
+  because each is a fixed-width cell (widths in cells): icon and label (10, just wide enough for
+  `🧠 Context`), one space, percentage (4, left-aligned, so every value sits one space after the
+  longest label), one space, the 10-cell bar, two spaces, the detail. On the right, each session reading
+  is icon and label (10), one space, value (5, left-aligned): every reading is the same width, so the
+  labels and the values each start in one column, with at most a couple of cells left after a short
+  value. 0.5.0 had wider cells (11 for labels with a trailing space, percentages right-aligned, the right
+  reading 18 wide), which left visible gaps between label and value and after the right-hand values. A bar row with no reading yet shows `—` in the
   percentage cell and an all-empty bar, so nothing shifts. There are no dividers in these rows: the
   columns do that job. Before (≤ 0.4.1) the bars were spread over three rows of different shape
   (context alone, 5-hour and week side by side, the session readings on their own row) and did not line up.

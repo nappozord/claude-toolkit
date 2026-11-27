@@ -6,9 +6,9 @@ desktop app and the terminal.
 ```
 📁 my-app  │  🌿 main ↑2 ↓0                        💬 Prompts 12  │  💵 Cost $1.84
 ──────────────────────────────────────────────────────────────────────────────────────────────
-🧠 Context  42% ▰▰▰▰▱▱▱▱▱▱  420k / 1M                       🔥 Cache    38m
-⏳ 5-hour   63% ▰▰▰▰▰▰▱▱▱▱  ↻ 1h52m                         ⏱️ Session  2h07m
-📅 Week     28% ▰▰▰▱▱▱▱▱▱▱  ↻ Thu 16:00                     🪙 Tokens   184k
+🧠 Context 42%  ▰▰▰▰▱▱▱▱▱▱  420k / 1M                      🔥 Cache   38m
+⏳ 5-hour  63%  ▰▰▰▰▰▰▱▱▱▱  ↻ 1h52m                        ⏱️ Session 2h07m
+📅 Week    28%  ▰▰▰▱▱▱▱▱▱▱  ↻ Thu 16:00                    🪙 Tokens  184k
 ```
 
 | Reading | What it means |
